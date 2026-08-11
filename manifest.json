@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-tag-to-readwise",
+  "name": "Tag to Readwise",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Finds blocks tagged #review across your vault and sends them to Readwise as highlights.",
+  "author": "Dan Mercer",
+  "authorUrl": "https://danmercer.net",
+  "isDesktopOnly": false
+}
