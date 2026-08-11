@@ -268,8 +268,19 @@ export default class ReviewToReadwisePlugin extends Plugin {
     return prefix ? `${prefix}/${obsidianUrl}` : obsidianUrl;
   }
 
+  /** Builds the obsidian:// deep link to open the vault */
+  private buildVaultUrl(): string {
+    const vaultName = this.app.vault.getName();
+    const encodedVault = encodeURIComponent(vaultName);
+    const obsidianUrl = `obsidian://open?vault=${encodedVault}`;
+
+    const prefix = this.settings.sourceUrlPrefix.trim().replace(/\/+$/, "");
+    return prefix ? `${prefix}/${obsidianUrl}` : obsidianUrl;
+  }
+
   /** Sends extracted blocks to Readwise in batches. */
   private async sendBlocksToReadwise(blocks: ExtractedBlock[]) {
+    const vaultUrl = this.buildVaultUrl();
     const highlights: ReadwiseHighlight[] = blocks.map(
       ({ file, cleanedText, blockId }) => {
         const url = this.buildBlockUrl(file, blockId);
@@ -281,10 +292,10 @@ export default class ReviewToReadwisePlugin extends Plugin {
           text,
           title: this.settings.bookTitle,
           author: this.settings.bookAuthor || undefined,
-          source_url: url,
+          source_url: vaultUrl,
           highlight_url: url,
           category: this.settings.category,
-          highlighted_at: new Date(file.stat.mtime).toISOString(),
+          highlighted_at: new Date(file.stat.ctime).toISOString(),
         };
       },
     );
