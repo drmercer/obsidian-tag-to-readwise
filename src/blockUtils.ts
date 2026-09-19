@@ -61,6 +61,27 @@ export interface Highlight {
   blockId: string;
 }
 
+export interface FileWithStat {
+  stat: {
+    mtime: number;
+  };
+}
+
+/**
+ * Filters files based on last synced timestamp.
+ * Returns files modified at or after `lastSyncedTime`.
+ * If `lastSyncedTime` is 0 or negative, returns all files.
+ */
+export function filterFilesByModifiedTime<T extends FileWithStat>(
+  files: T[],
+  lastSyncedTime: number,
+): T[] {
+  if (!lastSyncedTime || lastSyncedTime <= 0) {
+    return files;
+  }
+  return files.filter((file) => file.stat.mtime >= lastSyncedTime);
+}
+
 export interface ExtractHighlightsOptions {
   stripTagFromText?: boolean;
 }
