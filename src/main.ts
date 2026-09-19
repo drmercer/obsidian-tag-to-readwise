@@ -7,7 +7,7 @@ import {
   TFile,
   requestUrl,
 } from "obsidian";
-import { ensureTaggedBlocksHaveIds } from "./blockUtils";
+import { ensureTaggedBlocksHaveIds, extractHighlights } from "./blockUtils";
 
 /** ---------- Types ---------- */
 
@@ -183,65 +183,32 @@ export default class ReviewToReadwisePlugin extends Plugin {
     files: TFile[],
     tagName: string,
   ): Promise<ExtractedBlock[]> {
-    const escaped = tagName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Matches "#tag" as long as it's not immediately followed by another
-    // tag-legal character (so #review doesn't match inside #reviewed or #review/later).
-    const tagRegex = new RegExp(`#${escaped}(?![A-Za-z0-9_/-])`, "g");
-    // Matches a trailing Obsidian block reference at the very end of a block,
-    // e.g. "...some text ^a1b2c3" — captures the id without the caret.
-    const blockIdRegex = /(?:^|\s)\^([A-Za-z0-9-]{4,})[ \t]*$/;
-
     const results: ExtractedBlock[] = [];
 
     for (const file of files) {
-      const collected: {
-        rawBlock: string;
-        cleanedText: string;
-        blockId: string;
-      }[] = [];
-      let fileChanged = false;
+      let fileHighlights: { cleanedText: string; blockId: string }[] = [];
 
       await this.app.vault.process(file, (data) => {
-        const updatedContent = ensureTaggedBlocksHaveIds(
+        const { newMarkdown } = ensureTaggedBlocksHaveIds(
           data,
           tagName,
           () => this.generateBlockId(data),
         );
-        if (updatedContent !== data) {
-          fileChanged = true;
-        }
 
-        const parts = updatedContent.split(/(\n[ \t]*\n)/);
+        fileHighlights = extractHighlights(newMarkdown, tagName, {
+          stripTagFromText: this.settings.stripTagFromText,
+        });
 
-        for (let i = 0; i < parts.length; i += 2) {
-          if (!parts[i]) continue;
-          const block = parts[i];
-          tagRegex.lastIndex = 0;
-          if (!block || !tagRegex.test(block)) continue;
-          tagRegex.lastIndex = 0;
-
-          const idMatch = block.match(blockIdRegex);
-          const blockId = idMatch?.[1];
-          if (!blockId) continue;
-
-          const withoutId = block.replace(blockIdRegex, "").trim();
-          const cleanedText = this.settings.stripTagFromText
-            ? withoutId
-                .replace(tagRegex, "")
-                .trim()
-                .replace(/[ \t]{2,}/g, " ")
-            : withoutId;
-
-          if (cleanedText) {
-            collected.push({ rawBlock: block, cleanedText, blockId });
-          }
-        }
-
-        return fileChanged ? updatedContent : data;
+        return newMarkdown;
       });
 
-      for (const c of collected) {
-        results.push({ file, ...c });
+      for (const h of fileHighlights) {
+        results.push({
+          file,
+          rawBlock: h.cleanedText,
+          cleanedText: h.cleanedText,
+          blockId: h.blockId,
+        });
       }
     }
 
