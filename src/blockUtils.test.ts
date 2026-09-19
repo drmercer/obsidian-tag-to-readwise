@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ensureTaggedBlocksHaveIds,
   extractHighlights,
+  filterFilesByModifiedTime,
   parseLine,
   randomBlockId,
 } from "./blockUtils";
@@ -94,6 +95,25 @@ describe("ensureTaggedBlocksHaveIds", () => {
       newMarkdown: "",
       containedTag: false,
     });
+  });
+});
+
+describe("filterFilesByModifiedTime", () => {
+  const file1 = { path: "f1.md", stat: { mtime: 1000 } };
+  const file2 = { path: "f2.md", stat: { mtime: 2000 } };
+  const file3 = { path: "f3.md", stat: { mtime: 3000 } };
+  const files = [file1, file2, file3];
+
+  it("returns all files when lastSyncedTime is 0 or unassigned", () => {
+    expect(filterFilesByModifiedTime(files, 0)).toEqual(files);
+  });
+
+  it("filters out files modified strictly before lastSyncedTime", () => {
+    expect(filterFilesByModifiedTime(files, 2000)).toEqual([file2, file3]);
+  });
+
+  it("returns empty array if no files modified since lastSyncedTime", () => {
+    expect(filterFilesByModifiedTime(files, 4000)).toEqual([]);
   });
 });
 
