@@ -127,4 +127,12 @@ describe("extractHighlights", () => {
     const res = extractHighlights(input, "#review");
     expect(res).toEqual([{ cleanedText: "Line 1", blockId: "id12345" }]);
   });
+
+  it("extracts highlights when tag is in the middle of the line with tag stripping enabled", () => {
+    const input = "A line with #review in the middle ^123456";
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      { cleanedText: "A line with in the middle", blockId: "123456" },
+    ]);
+  });
 });

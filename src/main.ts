@@ -37,7 +37,6 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
 
 interface ExtractedBlock {
   file: TFile;
-  rawBlock: string; // block text as it now exists in the file (with block ID)
   cleanedText: string; // block text with the tag and block ID stripped
   blockId: string; // stable Obsidian block reference used as the Readwise highlight_url anchor
 }
@@ -189,15 +188,17 @@ export default class ReviewToReadwisePlugin extends Plugin {
       let fileHighlights: { cleanedText: string; blockId: string }[] = [];
 
       await this.app.vault.process(file, (data) => {
-        const { newMarkdown } = ensureTaggedBlocksHaveIds(
+        const { newMarkdown, containedTag } = ensureTaggedBlocksHaveIds(
           data,
           tagName,
           () => this.generateBlockId(data),
         );
 
-        fileHighlights = extractHighlights(newMarkdown, tagName, {
-          stripTagFromText: this.settings.stripTagFromText,
-        });
+        if (containedTag) {
+          fileHighlights = extractHighlights(newMarkdown, tagName, {
+            stripTagFromText: this.settings.stripTagFromText,
+          });
+        }
 
         return newMarkdown;
       });
@@ -205,7 +206,6 @@ export default class ReviewToReadwisePlugin extends Plugin {
       for (const h of fileHighlights) {
         results.push({
           file,
-          rawBlock: h.cleanedText,
           cleanedText: h.cleanedText,
           blockId: h.blockId,
         });
