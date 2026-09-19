@@ -1,5 +1,6 @@
 import {
   App,
+  Modal,
   Notice,
   Plugin,
   PluginSettingTab,
@@ -8,6 +9,36 @@ import {
   requestUrl,
 } from "obsidian";
 import { ensureTaggedBlocksHaveIds, extractHighlights } from "./blockUtils";
+
+/** ---------- Modals ---------- */
+
+class MissingSettingsModal extends Modal {
+  constructor(app: App) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Missing required settings" });
+    contentEl.createEl("p", {
+      text: "Please enter a book title and author in the plugin settings before syncing.",
+    });
+    const btnContainer = contentEl.createDiv({ cls: "modal-button-container" });
+    const okBtn = btnContainer.createEl("button", {
+      text: "OK",
+      cls: "mod-cta",
+    });
+    okBtn.addEventListener("click", () => {
+      this.close();
+    });
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
 
 /** ---------- Types ---------- */
 
@@ -29,8 +60,8 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   tagName: "review",
   category: "articles",
   stripTagFromText: true,
-  bookTitle: "Dan's Obsidian Notes",
-  bookAuthor: "Dan Mercer",
+  bookTitle: "",
+  bookAuthor: "",
   sourceUrlPrefix: "https://danmercer.net",
   appendMarkdownLinkToText: true,
 };
@@ -104,6 +135,11 @@ export default class ReviewToReadwisePlugin extends Plugin {
   async runSync(onlyFile?: TFile) {
     if (!this.settings.readwiseToken) {
       new Notice("Set your Readwise API token in plugin settings first.");
+      return;
+    }
+
+    if (!this.settings.bookTitle.trim() || !this.settings.bookAuthor.trim()) {
+      new MissingSettingsModal(this.app).open();
       return;
     }
 
@@ -388,7 +424,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       )
       .addText((text) =>
         text
-          .setPlaceholder("review")
+          .setPlaceholder("Review")
           .setValue(this.plugin.settings.tagName)
           .onChange(async (value) => {
             this.plugin.settings.tagName = value.trim().replace(/^#/, "");
@@ -435,7 +471,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       )
       .addText((text) =>
         text
-          .setPlaceholder("Dan's Obsidian Notes")
+          .setPlaceholder("e.g. My Obsidian notes")
           .setValue(this.plugin.settings.bookTitle)
           .onChange(async (value) => {
             this.plugin.settings.bookTitle = value.trim();
@@ -448,7 +484,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       .setDesc("Author field for every highlight sent to Readwise.")
       .addText((text) =>
         text
-          .setPlaceholder("Dan Mercer")
+          .setPlaceholder("e.g. Author name")
           .setValue(this.plugin.settings.bookAuthor)
           .onChange(async (value) => {
             this.plugin.settings.bookAuthor = value.trim();
@@ -474,7 +510,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Append link to highlight text")
       .setDesc(
-        "Also add a markdown link back to the note, using its title as link text, at the end of the highlight itself.",
+        "Also add a Markdown link back to the note, using its title as link text, at the end of the highlight itself.",
       )
       .addToggle((toggle) =>
         toggle

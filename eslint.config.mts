@@ -29,4 +29,10 @@ export default defineConfig(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		rules: {
+			'obsidianmd/settings-tab/prefer-setting-definitions': 'off',
+			'obsidianmd/ui/sentence-case': 'off',
+		},
+	},
 );
