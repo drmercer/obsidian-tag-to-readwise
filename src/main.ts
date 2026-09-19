@@ -100,7 +100,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  /** Entry point: scan (one file or whole vault), send to Readwise, optionally mark synced. */
+  /** Entry point: scan (one file or whole vault) and send to Readwise. */
   async runSync(onlyFile?: TFile) {
     if (!this.settings.readwiseToken) {
       new Notice("Set your Readwise API token in plugin settings first.");

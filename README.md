@@ -17,9 +17,8 @@ as one highlight, with the tag itself stripped out (this is configurable).
 3. Open the plugin settings and paste in your Readwise API token
    (find it at https://readwise.io/access_token). Click "Validate" to
    confirm it works.
-4. Optionally change the tag name (default `review`), the Readwise
-   category assigned to the highlights, and whether synced blocks get
-   automatically re-tagged so they aren't sent twice.
+4. Optionally change the tag name (default `review`) and the Readwise
+   category assigned to the highlights.
 
 ## Usage
 
@@ -63,10 +62,7 @@ npm run dev      # watch mode while developing
   creating a new highlight. Since the block ID (and therefore
   `highlight_url`) stays fixed even when you edit the block's wording,
   re-running the sync after an edit updates the existing Readwise
-  highlight instead of creating a new one. This means the "Re-tag synced
-  blocks" setting is no longer needed to avoid duplicates — leave it off,
-  since turning it on stops the block from being rescanned and breaks
-  edit-syncing.
+  highlight instead of creating a new one.
 - **Caveat**: renaming or moving a note changes its vault path, which
   changes the block's URL — so `highlight_url` changes too, and the next
   sync creates a fresh highlight in Readwise rather than updating the old
@@ -76,10 +72,6 @@ npm run dev      # watch mode while developing
 
 ## Caveats worth knowing about
 
-- Readwise's highlights API doesn't expose a "delete on re-sync" concept —
-  if you run the sync twice without the re-tag option on, you'll get
-  duplicate highlights. Turn on "Re-tag synced blocks" to avoid that, or
-  dedupe periodically inside Readwise.
 - Block splitting is done on blank lines, which matches how most people
   write `#review` tags at the end of a paragraph or bullet — but a tag
   placed alone on a blank-separated line will itself become a (probably
