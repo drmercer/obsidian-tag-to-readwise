@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ensureTaggedBlocksHaveIds, parseLine, randomBlockId } from "./blockUtils";
+import {
+  ensureTaggedBlocksHaveIds,
+  extractHighlights,
+  parseLine,
+  randomBlockId,
+} from "./blockUtils";
 
 describe("parseLine", () => {
   it("detects when a tag is present in a line", () => {
@@ -49,22 +54,85 @@ describe("ensureTaggedBlocksHaveIds", () => {
   it("appends block ID to lines containing the tag when ID is missing", () => {
     const input = "First line #review\nSecond line without tag";
     const result = ensureTaggedBlocksHaveIds(input, "review", () => "test123");
-    expect(result).toBe("First line #review ^test123\nSecond line without tag");
+    expect(result).toEqual({
+      newMarkdown: "First line #review ^test123\nSecond line without tag",
+      containedTag: true,
+    });
   });
 
-  it("preserves lines that already have a block ID", () => {
+  it("preserves lines that already have a block ID and correctly sets containedTag", () => {
     const input = "Existing #review ^already123\nAnother line #review";
     const result = ensureTaggedBlocksHaveIds(input, "review", () => "newid789");
-    expect(result).toBe("Existing #review ^already123\nAnother line #review ^newid789");
+    expect(result).toEqual({
+      newMarkdown:
+        "Existing #review ^already123\nAnother line #review ^newid789",
+      containedTag: true,
+    });
   });
 
   it("is non-destructive to untagged content and original structure", () => {
     const input = "Header\n\nParagraph 1\n\nParagraph 2 #review\n\nFooter";
     const result = ensureTaggedBlocksHaveIds(input, "review", () => "fixedid");
-    expect(result).toBe("Header\n\nParagraph 1\n\nParagraph 2 #review ^fixedid\n\nFooter");
+    expect(result).toEqual({
+      newMarkdown:
+        "Header\n\nParagraph 1\n\nParagraph 2 #review ^fixedid\n\nFooter",
+      containedTag: true,
+    });
+  });
+
+  it("handles markdown strings without the tag", () => {
+    const input = "Header\n\nParagraph 1\n\nFooter";
+    const result = ensureTaggedBlocksHaveIds(input, "review");
+    expect(result).toEqual({
+      newMarkdown: input,
+      containedTag: false,
+    });
   });
 
   it("handles empty markdown strings", () => {
-    expect(ensureTaggedBlocksHaveIds("", "review")).toBe("");
+    expect(ensureTaggedBlocksHaveIds("", "review")).toEqual({
+      newMarkdown: "",
+      containedTag: false,
+    });
+  });
+});
+
+describe("extractHighlights", () => {
+  it("extracts tagged lines that have block IDs and strips tag by default", () => {
+    const input =
+      "Line 1 #review ^id12345\nUntagged line ^id67890\nLine 2 #review ^idabcde";
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      { cleanedText: "Line 1", blockId: "id12345" },
+      { cleanedText: "Line 2", blockId: "idabcde" },
+    ]);
+  });
+
+  it("preserves tag when stripTagFromText is false", () => {
+    const input = "Line 1 #review ^id12345";
+    const res = extractHighlights(input, "review", { stripTagFromText: false });
+    expect(res).toEqual([
+      { cleanedText: "Line 1 #review", blockId: "id12345" },
+    ]);
+  });
+
+  it("ignores lines containing the tag if block ID is missing", () => {
+    const input = "Line 1 #review";
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([]);
+  });
+
+  it("handles tag names provided with leading hash", () => {
+    const input = "Line 1 #review ^id12345";
+    const res = extractHighlights(input, "#review");
+    expect(res).toEqual([{ cleanedText: "Line 1", blockId: "id12345" }]);
+  });
+
+  it("extracts highlights when tag is in the middle of the line with tag stripping enabled", () => {
+    const input = "A line with #review in the middle ^123456";
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      { cleanedText: "A line with in the middle", blockId: "123456" },
+    ]);
   });
 });

@@ -37,17 +37,68 @@ export function ensureTaggedBlocksHaveIds(
   markdown: string,
   tagName: string,
   generateBlockId: () => string = randomBlockId,
-): string {
-  // Non-destructive design: splits content line-by-line and maps each line so that untagged lines
-  // or lines that already have block IDs are returned unchanged, preserving original content and formatting.
-  return markdown
+): { newMarkdown: string; containedTag: boolean } {
+  let containedTag = false;
+  const newMarkdown = markdown
     .split("\n")
     .map((line) => {
       const parsed = parseLine(line, tagName);
+      if (parsed.hasTag) {
+        containedTag = true;
+      }
       if (!parsed.hasTag || !!parsed.blockId) {
         return line;
       }
       return `${line} ^${generateBlockId()}`;
     })
     .join("\n");
+
+  return { newMarkdown, containedTag };
+}
+
+export interface Highlight {
+  cleanedText: string;
+  blockId: string;
+}
+
+export interface ExtractHighlightsOptions {
+  stripTagFromText?: boolean;
+}
+
+/**
+ * Pure function that extracts highlights from markdown content for lines that contain
+ * the target tag and a block ID. Uses parseLine under the hood.
+ */
+export function extractHighlights(
+  markdown: string,
+  tagName: string,
+  options: ExtractHighlightsOptions = {},
+): Highlight[] {
+  const stripTag = options.stripTagFromText ?? true;
+  const cleanTag = tagName.trim().replace(/^#/, "");
+  const escapedTag = cleanTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tagRegex = new RegExp(`#${escapedTag}(?![A-Za-z0-9_/-])`, "g");
+  const blockIdRegex = /(?:^|\s)\^([A-Za-z0-9-]{4,})[ \t]*$/;
+
+  const highlights: Highlight[] = [];
+  const lines = markdown.split("\n");
+
+  for (const line of lines) {
+    const parsed = parseLine(line, tagName);
+    if (parsed.hasTag && parsed.blockId) {
+      const withoutId = line.replace(blockIdRegex, "").trim();
+      const cleanedText = stripTag
+        ? withoutId.replace(tagRegex, "").trim().replace(/[ \t]{2,}/g, " ")
+        : withoutId;
+
+      if (cleanedText) {
+        highlights.push({
+          cleanedText,
+          blockId: parsed.blockId,
+        });
+      }
+    }
+  }
+
+  return highlights;
 }
