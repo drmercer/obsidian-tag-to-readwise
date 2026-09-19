@@ -1,8 +1,8 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
-	"main": "main.js",
+	"name": "obsidian-tag-to-readwise",
+	"version": "0.0.0",
+	"description": "An Obsidian plugin to sync tagged blocks to Readwise",
+	"main": "src/main.js",
 	"type": "module",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -11,7 +11,7 @@
 		"lint": "eslint ."
 	},
 	"keywords": [],
-	"license": "0-BSD",
+	"license": "MIT",
 	"devDependencies": {
 		"@eslint/js": "^9.39.4",
 		"@types/node": "^22.15.17",
