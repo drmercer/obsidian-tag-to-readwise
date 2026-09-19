@@ -245,7 +245,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
   private buildVaultUrl(): string {
     const vaultName = this.app.vault.getName();
     const encodedVault = encodeURIComponent(vaultName);
-    const obsidianUrl = `obsidian://open?vault=${encodedVault}`;
+    const obsidianUrl = `obsidian://open?vault=${encodedVault}&__cachebuster=1`;
 
     const prefix = this.settings.sourceUrlPrefix.trim().replace(/\/+$/, "");
     return prefix ? `${prefix}/${obsidianUrl}` : obsidianUrl;
