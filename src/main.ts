@@ -7,6 +7,7 @@ import {
   TFile,
   requestUrl,
 } from "obsidian";
+import { ensureTaggedBlocksHaveIds } from "./blockUtils";
 
 /** ---------- Types ---------- */
 
@@ -201,9 +202,16 @@ export default class ReviewToReadwisePlugin extends Plugin {
       let fileChanged = false;
 
       await this.app.vault.process(file, (data) => {
-        // Split on blank lines, keeping the separators themselves so the
-        // file can be reassembled byte-for-byte outside the edited blocks.
-        const parts = data.split(/(\n[ \t]*\n)/);
+        const updatedContent = ensureTaggedBlocksHaveIds(
+          data,
+          tagName,
+          () => this.generateBlockId(data),
+        );
+        if (updatedContent !== data) {
+          fileChanged = true;
+        }
+
+        const parts = updatedContent.split(/(\n[ \t]*\n)/);
 
         for (let i = 0; i < parts.length; i += 2) {
           if (!parts[i]) continue;
@@ -212,17 +220,11 @@ export default class ReviewToReadwisePlugin extends Plugin {
           if (!block || !tagRegex.test(block)) continue;
           tagRegex.lastIndex = 0;
 
-          let blockId: string;
           const idMatch = block.match(blockIdRegex);
-          if (idMatch?.[1]) {
-            blockId = idMatch[1];
-          } else {
-            blockId = this.generateBlockId(data);
-            parts[i] = `${block.replace(/[ \t]+$/, "")} ^${blockId}`;
-            fileChanged = true;
-          }
+          const blockId = idMatch?.[1];
+          if (!blockId) continue;
 
-          const withoutId = parts[i]!.replace(blockIdRegex, "").trim();
+          const withoutId = block.replace(blockIdRegex, "").trim();
           const cleanedText = this.settings.stripTagFromText
             ? withoutId
                 .replace(tagRegex, "")
@@ -231,11 +233,11 @@ export default class ReviewToReadwisePlugin extends Plugin {
             : withoutId;
 
           if (cleanedText) {
-            collected.push({ rawBlock: parts[i]!, cleanedText, blockId });
+            collected.push({ rawBlock: block, cleanedText, blockId });
           }
         }
 
-        return fileChanged ? parts.join("") : data;
+        return fileChanged ? updatedContent : data;
       });
 
       for (const c of collected) {
