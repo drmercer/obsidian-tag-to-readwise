@@ -138,8 +138,9 @@ export default class ReviewToReadwisePlugin extends Plugin {
 
     notice.setMessage(`Sending ${blocks.length} block(s) to Readwise…`);
 
+    let highlightsUrl: string | undefined;
     try {
-      await this.sendBlocksToReadwise(blocks);
+      highlightsUrl = await this.sendBlocksToReadwise(blocks);
     } catch (err) {
       notice.hide();
       new Notice(`Readwise sync failed: ${(err as Error).message}`);
@@ -148,7 +149,19 @@ export default class ReviewToReadwisePlugin extends Plugin {
     }
 
     notice.hide();
-    new Notice(`Sent ${blocks.length} block(s) to Readwise.`);
+
+    const successFragment = createFragment((frag) => {
+      frag.appendText(`Sent ${blocks.length} block(s) to Readwise.`);
+      if (highlightsUrl) {
+        frag.createEl("br");
+        frag.createEl("a", {
+          text: "View in Readwise",
+          href: highlightsUrl,
+        });
+      }
+    });
+
+    new Notice(successFragment);
   }
 
   /** Validate the stored API token against Readwise's auth endpoint. */
@@ -251,8 +264,8 @@ export default class ReviewToReadwisePlugin extends Plugin {
     return prefix ? `${prefix}/${obsidianUrl}` : obsidianUrl;
   }
 
-  /** Sends extracted blocks to Readwise in batches. */
-  private async sendBlocksToReadwise(blocks: ExtractedBlock[]) {
+  /** Sends extracted blocks to Readwise in batches. Returns highlights_url if available. */
+  private async sendBlocksToReadwise(blocks: ExtractedBlock[]): Promise<string | undefined> {
     const vaultUrl = this.buildVaultUrl();
     const highlights: ReadwiseHighlight[] = blocks.map(
       ({ file, cleanedText, blockId }) => {
@@ -273,16 +286,21 @@ export default class ReviewToReadwisePlugin extends Plugin {
       },
     );
 
+    let highlightsUrl: string | undefined;
     for (let i = 0; i < highlights.length; i += BATCH_SIZE) {
       const batch = highlights.slice(i, i + BATCH_SIZE);
-      await this.sendBatchWithRetry(batch);
+      const url = await this.sendBatchWithRetry(batch);
+      if (url && !highlightsUrl) {
+        highlightsUrl = url;
+      }
     }
+    return highlightsUrl;
   }
 
   private async sendBatchWithRetry(
     batch: ReadwiseHighlight[],
     attempt = 1,
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     const res = await requestUrl({
       url: READWISE_HIGHLIGHTS_URL,
       method: "POST",
@@ -294,7 +312,23 @@ export default class ReviewToReadwisePlugin extends Plugin {
       throw: false,
     });
 
-    if (res.status === 200 || res.status === 201) return;
+    if (res.status === 200 || res.status === 201) {
+      const data = res.json as unknown;
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          if (
+            item &&
+            typeof item === "object" &&
+            "highlights_url" in item &&
+            typeof (item as Record<string, unknown>).highlights_url === "string" &&
+            (item as Record<string, unknown>).highlights_url
+          ) {
+            return (item as Record<string, unknown>).highlights_url as string;
+          }
+        }
+      }
+      return undefined;
+    }
 
     // Readwise rate-limits at 429 and tells you how long to wait.
     if (res.status === 429 && attempt <= 3) {
