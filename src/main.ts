@@ -6,7 +6,6 @@ import {
   Setting,
   TFile,
   requestUrl,
-  Vault,
 } from "obsidian";
 
 /** ---------- Types ---------- */
@@ -65,13 +64,15 @@ export default class ReviewToReadwisePlugin extends Plugin {
     await this.loadSettings();
 
     this.addRibbonIcon("book-up", "Sync #review blocks to Readwise", () => {
-      this.runSync();
+      void this.runSync();
     });
 
     this.addCommand({
       id: "sync-review-blocks-to-readwise",
       name: "Sync all #review blocks to Readwise",
-      callback: () => this.runSync(),
+      callback: () => {
+        void this.runSync();
+      },
     });
 
     this.addCommand({
@@ -80,7 +81,9 @@ export default class ReviewToReadwisePlugin extends Plugin {
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         if (!file || file.extension !== "md") return false;
-        if (!checking) this.runSync(file);
+        if (!checking) {
+          void this.runSync(file);
+        }
         return true;
       },
     });
@@ -89,7 +92,8 @@ export default class ReviewToReadwisePlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loaded = (await this.loadData()) as Partial<ReviewToReadwiseSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
   }
 
   async saveSettings() {
@@ -326,7 +330,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
     // Readwise rate-limits at 429 and tells you how long to wait.
     if (res.status === 429 && attempt <= 3) {
       const retryAfter = Number(res.headers["retry-after"] ?? 5);
-      await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, retryAfter * 1000));
       return this.sendBatchWithRetry(batch, attempt + 1);
     }
 
@@ -348,7 +352,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "Review to Readwise" });
+    new Setting(containerEl).setName("Review to Readwise").setHeading();
 
     new Setting(containerEl)
       .setName("Readwise API token")
