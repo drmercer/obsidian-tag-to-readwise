@@ -7,7 +7,11 @@ import {
   TFile,
   requestUrl,
 } from "obsidian";
-import { ensureTaggedBlocksHaveIds, extractHighlights } from "./blockUtils";
+import {
+  ensureTaggedBlocksHaveIds,
+  extractHighlights,
+  filterFilesByModifiedTime,
+} from "./blockUtils";
 
 /** ---------- Types ---------- */
 
@@ -22,6 +26,7 @@ interface ReviewToReadwiseSettings {
   bookAuthor: string; // fixed Readwise author for all highlights
   sourceUrlPrefix: string; // prepended to the obsidian:// URL so Readwise treats it as a clickable http(s) link
   appendMarkdownLinkToText: boolean; // add "[Note Title](url)" to the end of the highlight text itself
+  lastSyncedTime: number; // timestamp in ms of last successful sync
 }
 
 const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
@@ -33,6 +38,7 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   bookAuthor: "Dan Mercer",
   sourceUrlPrefix: "https://danmercer.net",
   appendMarkdownLinkToText: true,
+  lastSyncedTime: 0,
 };
 
 interface ExtractedBlock {
@@ -76,6 +82,14 @@ export default class ReviewToReadwisePlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "resync-all-highlights-to-readwise",
+      name: "Re-sync ALL highlights to Readwise",
+      callback: () => {
+        void this.runSync(undefined, { ignoreLastSyncedTime: true });
+      },
+    });
+
+    this.addCommand({
       id: "sync-review-blocks-in-current-file",
       name: "Sync #review blocks in current file to Readwise",
       checkCallback: (checking) => {
@@ -101,7 +115,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
   }
 
   /** Entry point: scan (one file or whole vault), send to Readwise, optionally mark synced. */
-  async runSync(onlyFile?: TFile) {
+  async runSync(onlyFile?: TFile, options?: { ignoreLastSyncedTime?: boolean }) {
     if (!this.settings.readwiseToken) {
       new Notice("Set your Readwise API token in plugin settings first.");
       return;
@@ -113,7 +127,19 @@ export default class ReviewToReadwisePlugin extends Plugin {
       return;
     }
 
-    const files = onlyFile ? [onlyFile] : this.app.vault.getMarkdownFiles();
+    const syncStartTime = Date.now();
+
+    let files: TFile[];
+    if (onlyFile) {
+      files = [onlyFile];
+    } else if (options?.ignoreLastSyncedTime) {
+      files = this.app.vault.getMarkdownFiles();
+    } else {
+      files = filterFilesByModifiedTime(
+        this.app.vault.getMarkdownFiles(),
+        this.settings.lastSyncedTime,
+      );
+    }
 
     const notice = new Notice(
       `Scanning ${files.length} file(s) for #${tagName}…`,
@@ -133,6 +159,10 @@ export default class ReviewToReadwisePlugin extends Plugin {
     if (blocks.length === 0) {
       notice.hide();
       new Notice(`No blocks tagged #${tagName} found.`);
+      if (!onlyFile) {
+        this.settings.lastSyncedTime = syncStartTime;
+        await this.saveSettings();
+      }
       return;
     }
 
@@ -146,6 +176,11 @@ export default class ReviewToReadwisePlugin extends Plugin {
       new Notice(`Readwise sync failed: ${(err as Error).message}`);
       console.error(err);
       return;
+    }
+
+    if (!onlyFile) {
+      this.settings.lastSyncedTime = syncStartTime;
+      await this.saveSettings();
     }
 
     notice.hide();
@@ -483,6 +518,22 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
             this.plugin.settings.appendMarkdownLinkToText = value;
             await this.plugin.saveSettings();
           }),
+      );
+
+    const lastSyncedText = this.plugin.settings.lastSyncedTime
+      ? new Date(this.plugin.settings.lastSyncedTime).toLocaleString()
+      : "Never";
+
+    new Setting(containerEl)
+      .setName("Last synced time")
+      .setDesc(`Highlights were last synced: ${lastSyncedText}`)
+      .addButton((btn) =>
+        btn.setButtonText("Reset").onClick(async () => {
+          this.plugin.settings.lastSyncedTime = 0;
+          await this.plugin.saveSettings();
+          this.display();
+          new Notice("Last synced time reset.");
+        }),
       );
   }
 }

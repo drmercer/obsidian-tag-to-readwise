@@ -23,7 +23,8 @@ as one highlight, with the tag itself stripped out (this is configurable).
 
 ## Usage
 
-- Command palette → "Sync all #review blocks to Readwise" (whole vault)
+- Command palette → "Sync all #review blocks to Readwise" (syncs files modified since the last synced time)
+- Command palette → "Re-sync ALL highlights to Readwise" (ignores the last synced time and syncs all files)
 - Command palette → "Sync #review blocks in current file to Readwise"
 - Or click the book-up icon in the ribbon
 
