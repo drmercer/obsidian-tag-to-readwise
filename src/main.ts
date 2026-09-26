@@ -5,6 +5,7 @@ import {
   Plugin,
   PluginSettingTab,
   Setting,
+  SettingDefinitionItem,
   TFile,
   requestUrl,
 } from "obsidian";
@@ -114,7 +115,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
 
     this.addCommand({
       id: "resync-all-highlights-to-readwise",
-      name: "Re-sync ALL highlights to Readwise",
+      name: "Re-sync all highlights to Readwise",
       callback: () => {
         void this.runSync(undefined, { ignoreLastSyncedTime: true });
       },
@@ -422,157 +423,131 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
+  override async setControlValue(key: string, value: unknown): Promise<void> {
+    if (typeof value === "string") {
+      value = value.trim();
+      if (key === "tagName") {
+        value = (value as string).replace(/^#/, "");
+      }
+    }
+    (this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+    await this.plugin.saveSettings();
+  }
 
-    new Setting(containerEl).setName("Review to Readwise").setHeading();
-
-    new Setting(containerEl)
-      .setName("Readwise API token")
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- URLs should be lowercase IMO
-      .setDesc("Find this at https://readwise.io/access_token")
-      .addText((text) => {
-        text
-          .setPlaceholder("Enter your token")
-          .setValue(this.plugin.settings.readwiseToken)
-          .onChange(async (value) => {
-            this.plugin.settings.readwiseToken = value.trim();
-            await this.plugin.saveSettings();
-          });
-        text.inputEl?.setAttribute("type", "password");
-      })
-      .addButton((btn) =>
-        btn.setButtonText("Validate").onClick(async () => {
-          btn.setDisabled(true).setButtonText("Checking…");
-          const ok = await this.plugin.validateToken(
-            this.plugin.settings.readwiseToken,
-          );
-          new Notice(ok ? "Token is valid." : "Token is invalid.");
-          btn.setDisabled(false).setButtonText("Validate");
-        }),
-      );
-
-    new Setting(containerEl)
-      .setName("Tag to scan for")
-      .setDesc(
-        "Without the '#'. Blocks containing this tag will be sent to Readwise.",
-      )
-      .addText((text) =>
-        text
-          // eslint-disable-next-line obsidianmd/ui/sentence-case -- tag should be lowercase
-          .setPlaceholder("review")
-          .setValue(this.plugin.settings.tagName)
-          .onChange(async (value) => {
-            this.plugin.settings.tagName = value.trim().replace(/^#/, "");
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Readwise category")
-      .setDesc("Category assigned to highlights created from your notes.")
-      .addDropdown((drop) =>
-        drop
-          .addOptions({
-            articles: "Articles",
-            books: "Books",
-            tweets: "Tweets",
-            podcasts: "Podcasts",
-          })
-          .setValue(this.plugin.settings.category)
-          .onChange(async (value) => {
-            this.plugin.settings.category = value as ReadwiseCategory;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Strip tag from sent text")
-      .setDesc(
-        "Remove the #tag itself from the highlight text sent to Readwise.",
-      )
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.stripTagFromText)
-          .onChange(async (value) => {
-            this.plugin.settings.stripTagFromText = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Book title")
-      .setDesc(
-        "All highlights are grouped under this single Readwise book/title.",
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("My Obsidian notes")
-          .setValue(this.plugin.settings.bookTitle)
-          .onChange(async (value) => {
-            this.plugin.settings.bookTitle = value.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Author")
-      .setDesc("Author field for every highlight sent to Readwise.")
-      .addText((text) =>
-        text
-          .setPlaceholder("Your name")
-          .setValue(this.plugin.settings.bookAuthor)
-          .onChange(async (value) => {
-            this.plugin.settings.bookAuthor = value.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Source link prefix")
-      .setDesc(
-        // eslint-disable-next-line obsidianmd/ui/sentence-case -- URLs should be lowercase IMO
-        'Prepended to the obsidian:// deep link. Use an https URL that redirects to the obsidian:// link, like "https://danmercer.net/", to make Readwise render it as a clickable link instead of an inert custom URL scheme. Leave blank to use the raw obsidian:// link.',
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder("https://example.com")
-          .setValue(this.plugin.settings.sourceUrlPrefix)
-          .onChange(async (value) => {
-            this.plugin.settings.sourceUrlPrefix = value.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Append link to highlight text")
-      .setDesc(
-        "Also add a Markdown link back to the note, using its title as link text, at the end of the highlight itself.",
-      )
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.appendMarkdownLinkToText)
-          .onChange(async (value) => {
-            this.plugin.settings.appendMarkdownLinkToText = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
+  override getSettingDefinitions(): SettingDefinitionItem[] {
     const lastSyncedText = this.plugin.settings.lastSyncedTime
       ? new Date(this.plugin.settings.lastSyncedTime).toLocaleString()
       : "Never";
 
-    new Setting(containerEl)
-      .setName("Last synced time")
-      .setDesc(`Highlights were last synced: ${lastSyncedText}`)
-      .addButton((btn) =>
-        btn.setButtonText("Reset").onClick(async () => {
-          this.plugin.settings.lastSyncedTime = 0;
-          await this.plugin.saveSettings();
-          this.display();
-          new Notice("Last synced time reset.");
-        }),
-      );
+    return [
+      {
+        name: "Readwise API token",
+        desc: "Find this at https://readwise.io/access_token",
+        render: (setting: Setting) => {
+          setting
+            .addText((text) => {
+              text
+                .setPlaceholder("Enter your token")
+                .setValue(this.plugin.settings.readwiseToken)
+                .onChange(async (value) => {
+                  this.plugin.settings.readwiseToken = value.trim();
+                  await this.plugin.saveSettings();
+                });
+              text.inputEl?.setAttribute("type", "password");
+            })
+            .addButton((btn) =>
+              btn.setButtonText("Validate").onClick(async () => {
+                btn.setDisabled(true).setButtonText("Checking…");
+                const ok = await this.plugin.validateToken(
+                  this.plugin.settings.readwiseToken,
+                );
+                new Notice(ok ? "Token is valid." : "Token is invalid.");
+                btn.setDisabled(false).setButtonText("Validate");
+              }),
+            );
+        },
+      },
+      {
+        name: "Tag to scan for",
+        desc: "Without the '#'. Blocks containing this tag will be sent to Readwise.",
+        control: {
+          type: "text",
+          key: "tagName",
+          placeholder: "review",
+        },
+      },
+      {
+        name: "Readwise category",
+        desc: "Category assigned to highlights created from your notes.",
+        control: {
+          type: "dropdown",
+          key: "category",
+          options: {
+            articles: "Articles",
+            books: "Books",
+            tweets: "Tweets",
+            podcasts: "Podcasts",
+          },
+        },
+      },
+      {
+        name: "Strip tag from sent text",
+        desc: "Remove the #tag itself from the highlight text sent to Readwise.",
+        control: {
+          type: "toggle",
+          key: "stripTagFromText",
+        },
+      },
+      {
+        name: "Book title",
+        desc: "All highlights are grouped under this single Readwise book/title.",
+        control: {
+          type: "text",
+          key: "bookTitle",
+          placeholder: "My Obsidian notes",
+        },
+      },
+      {
+        name: "Author",
+        desc: "Author field for every highlight sent to Readwise.",
+        control: {
+          type: "text",
+          key: "bookAuthor",
+          placeholder: "Your name",
+        },
+      },
+      {
+        name: "Source link prefix",
+        desc:
+          'Prepended to the obsidian:// deep link. Use an https URL that redirects to the obsidian:// link, like "https://danmercer.net/", to make Readwise render it as a clickable link instead of an inert custom URL scheme. Leave blank to use the raw obsidian:// link.',
+        control: {
+          type: "text",
+          key: "sourceUrlPrefix",
+          placeholder: "https://example.com",
+        },
+      },
+      {
+        name: "Append link to highlight text",
+        desc: "Also add a Markdown link back to the note, using its title as link text, at the end of the highlight itself.",
+        control: {
+          type: "toggle",
+          key: "appendMarkdownLinkToText",
+        },
+      },
+      {
+        name: "Last synced time",
+        desc: `Highlights were last synced: ${lastSyncedText}`,
+        render: (setting: Setting) => {
+          setting.addButton((btn) =>
+            btn.setButtonText("Reset").onClick(async () => {
+              this.plugin.settings.lastSyncedTime = 0;
+              await this.plugin.saveSettings();
+              this.update();
+              new Notice("Last synced time reset.");
+            }),
+          );
+        },
+      },
+    ];
   }
 }
