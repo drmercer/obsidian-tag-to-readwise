@@ -1,24 +1,72 @@
+export interface ParsedLine {
+  hasTag: boolean;
+  blockId?: string;
+  cleanedText: string;
+  dotTags: string[];
+}
+
 /**
  * Parses a single line of markdown text to determine if it contains the target tag
  * and whether it already has an Obsidian block ID.
+ *
+ * Format: line words here #tagName .dotTag1 .dotTag2 ^blockId
  */
-export function parseLine(
-  line: string,
-  tagName: string,
-): { hasTag: boolean; blockId?: string } {
+export function parseLine(line: string, tagName: string): ParsedLine {
   const cleanTag = tagName.trim().replace(/^#/, "");
-  const escapedTag = cleanTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const tagRegex = new RegExp(`#${escapedTag}(?![A-Za-z0-9_/-])`);
-  const blockIdRegex = /(?:^|\s)\^([A-Za-z0-9-]{4,})[ \t]*$/;
+  const escapedTag = escapeForRegex(cleanTag);
+  const parseRegex = new RegExp(`^(.*?\\s)?#${escapedTag}\\b(.*?)$`);
+  const blockIdRegex = /\s+\^([A-Za-z0-9-]{4,})\s*$/;
 
-  const hasTag = tagRegex.test(line);
-  const match = line.match(blockIdRegex);
-  const blockId = match?.[1];
+  const match = line.match(parseRegex);
+  if (!match) {
+    return {
+      hasTag: false,
+      cleanedText: line.replace(blockIdRegex, ""),
+      dotTags: [],
+      blockId: line.match(blockIdRegex)?.[1] || undefined,
+    };
+  }
+  const [, beforeTag = "", afterTag = ""] = match;
+
+  // Extract the block ID from the afterTag text if it exists.
+  const blockId = afterTag.match(blockIdRegex)?.[1];
+  // Remove the block ID from the afterTag text if it exists.
+  let afterTagText = afterTag.replace(blockIdRegex, "");
+
+  // If the afterTagText is all Readwise-style dot tags, extract them into
+  // the dotTags array and clear afterTagText
+  let dotTags: string[] = [];
+  const afterTagWords = afterTagText.trim().split(/\s+/);
+  if (afterTagWords.every((word) => word.startsWith(".") && word.length > 1)) {
+    dotTags = afterTagWords.map((word) => word.slice(1));
+    afterTagText = "";
+  }
+
+  // Only include the tag in the reconstructed line if there is text both
+  // before and after it.
+  // Never include the block ID.
+  const cleanedText =
+    !!afterTagText && !!beforeTag
+      ? beforeTag + "#" + cleanTag + afterTagText
+      : afterTagText
+        ? afterTagText
+        : beforeTag;
+  const cleanedTrimmedText = cleanedText.trim();
 
   return {
-    hasTag,
-    ...(blockId ? { blockId } : {}),
+    // debug: {
+    //   beforeTag,
+    //   afterTag,
+    // },
+    hasTag: true,
+    blockId: blockId || undefined,
+    cleanedText: cleanedTrimmedText,
+    dotTags,
   };
+}
+
+function escapeForRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -65,6 +113,7 @@ export function ensureTaggedBlocksHaveIds(
 export interface Highlight {
   cleanedText: string;
   blockId: string;
+  dotTags: string[];
 }
 
 export interface FileWithStat {
@@ -88,10 +137,6 @@ export function filterFilesByModifiedTime<T extends FileWithStat>(
   return files.filter((file) => file.stat.mtime >= lastSyncedTime);
 }
 
-export interface ExtractHighlightsOptions {
-  stripTagFromText?: boolean;
-}
-
 /**
  * Pure function that extracts highlights from markdown content for lines that contain
  * the target tag and a block ID. Uses parseLine under the hood.
@@ -99,31 +144,18 @@ export interface ExtractHighlightsOptions {
 export function extractHighlights(
   markdown: string,
   tagName: string,
-  options: ExtractHighlightsOptions = {},
 ): Highlight[] {
-  const stripTag = options.stripTagFromText ?? true;
-  const cleanTag = tagName.trim().replace(/^#/, "");
-  const escapedTag = cleanTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const tagRegex = new RegExp(`#${escapedTag}(?![A-Za-z0-9_/-])`, "g");
-  const blockIdRegex = /(?:^|\s)\^([A-Za-z0-9-]{4,})[ \t]*$/;
-
   const highlights: Highlight[] = [];
   const lines = markdown.split("\n");
 
   for (const line of lines) {
     const parsed = parseLine(line, tagName);
     if (parsed.hasTag && parsed.blockId) {
-      const withoutId = line.replace(blockIdRegex, "").trim();
-      const cleanedText = stripTag
-        ? withoutId.replace(tagRegex, "").trim().replace(/[ \t]{2,}/g, " ")
-        : withoutId;
-
-      if (cleanedText) {
-        highlights.push({
-          cleanedText,
-          blockId: parsed.blockId,
-        });
-      }
+      highlights.push({
+        cleanedText: parsed.cleanedText,
+        blockId: parsed.blockId,
+        dotTags: parsed.dotTags,
+      });
     }
   }
 

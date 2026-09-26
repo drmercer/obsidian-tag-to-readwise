@@ -10,37 +10,112 @@ import {
 describe("parseLine", () => {
   it("detects when a tag is present in a line", () => {
     const res = parseLine("This line has #review tag", "review");
-    expect(res).toEqual({ hasTag: true });
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "This line has #review tag",
+      dotTags: [],
+      blockId: undefined,
+    });
   });
 
   it("handles leading hash in tagName argument", () => {
     const res = parseLine("This line has #review tag", "#review");
-    expect(res).toEqual({ hasTag: true });
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "This line has #review tag",
+      dotTags: [],
+      blockId: undefined,
+    });
   });
 
   it("returns hasTag false when tag is not present", () => {
     const res = parseLine("This line has no tag", "review");
-    expect(res).toEqual({ hasTag: false });
+    expect(res).toEqual({
+      hasTag: false,
+      cleanedText: "This line has no tag",
+      dotTags: [],
+      blockId: undefined,
+    });
   });
 
   it("does not match partial tag names like #reviewed for #review", () => {
     const res = parseLine("This is #reviewed code", "review");
-    expect(res).toEqual({ hasTag: false });
+    expect(res).toEqual({
+      hasTag: false,
+      cleanedText: "This is #reviewed code",
+      dotTags: [],
+      blockId: undefined,
+    });
+  });
+
+  it("includes tag when followed by punctuation", () => {
+    const res = parseLine("This is #review!", "review");
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "This is #review!",
+      dotTags: [],
+      blockId: undefined,
+    });
   });
 
   it("extracts block ID when present at the end of the line", () => {
     const res = parseLine("Some text #review ^abc1234", "review");
-    expect(res).toEqual({ hasTag: true, blockId: "abc1234" });
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "Some text",
+      dotTags: [],
+      blockId: "abc1234",
+    });
   });
 
   it("extracts block ID even when tag is not present", () => {
     const res = parseLine("Some text ^xyz9876", "review");
-    expect(res).toEqual({ hasTag: false, blockId: "xyz9876" });
+    expect(res).toEqual({
+      hasTag: false,
+      cleanedText: "Some text",
+      dotTags: [],
+      blockId: "xyz9876",
+    });
   });
 
   it("handles special characters in tag name safely", () => {
     const res = parseLine("Testing #tag-name.special", "tag-name.special");
-    expect(res).toEqual({ hasTag: true });
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "Testing",
+      dotTags: [],
+      blockId: undefined,
+    });
+    const res2 = parseLine(
+      "Testing #tag-name.special with more text",
+      "tag-name.special",
+    );
+    expect(res2).toEqual({
+      hasTag: true,
+      cleanedText: "Testing #tag-name.special with more text",
+      dotTags: [],
+      blockId: undefined,
+    });
+  });
+
+  it("handles lines with dot tags correctly", () => {
+    const res = parseLine("Some text #review .dot1 .dot2", "review");
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "Some text",
+      dotTags: ["dot1", "dot2"],
+      blockId: undefined,
+    });
+  });
+
+  it("does not extract dot tags when they are not all dot tags", () => {
+    const res = parseLine("Some text #review .dot1 notadot", "review");
+    expect(res).toEqual({
+      hasTag: true,
+      cleanedText: "Some text #review .dot1 notadot",
+      dotTags: [],
+      blockId: undefined,
+    });
   });
 });
 
@@ -118,21 +193,13 @@ describe("filterFilesByModifiedTime", () => {
 });
 
 describe("extractHighlights", () => {
-  it("extracts tagged lines that have block IDs and strips tag by default", () => {
+  it("extracts tagged lines that have block IDs", () => {
     const input =
       "Line 1 #review ^id12345\nUntagged line ^id67890\nLine 2 #review ^idabcde";
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
       { cleanedText: "Line 1", blockId: "id12345" },
       { cleanedText: "Line 2", blockId: "idabcde" },
-    ]);
-  });
-
-  it("preserves tag when stripTagFromText is false", () => {
-    const input = "Line 1 #review ^id12345";
-    const res = extractHighlights(input, "review", { stripTagFromText: false });
-    expect(res).toEqual([
-      { cleanedText: "Line 1 #review", blockId: "id12345" },
     ]);
   });
 
@@ -152,7 +219,7 @@ describe("extractHighlights", () => {
     const input = "A line with #review in the middle ^123456";
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
-      { cleanedText: "A line with in the middle", blockId: "123456" },
+      { cleanedText: "A line with #review in the middle", blockId: "123456" },
     ]);
   });
 });

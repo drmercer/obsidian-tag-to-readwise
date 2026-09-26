@@ -53,7 +53,6 @@ interface ReviewToReadwiseSettings {
   readwiseToken: string;
   tagName: string; // without the leading '#'
   category: ReadwiseCategory;
-  stripTagFromText: boolean;
   bookTitle: string; // fixed Readwise "book" title all highlights are grouped under
   bookAuthor: string; // fixed Readwise author for all highlights
   lastSyncedTime: number; // timestamp in ms of last successful sync
@@ -63,7 +62,6 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   readwiseToken: "",
   tagName: "review",
   category: "articles",
-  stripTagFromText: true,
   bookTitle: "",
   bookAuthor: "",
   lastSyncedTime: 0,
@@ -73,6 +71,7 @@ interface ExtractedBlock {
   file: TFile;
   cleanedText: string; // block text with the tag and block ID stripped
   blockId: string; // stable Obsidian block reference used as the Readwise highlight_url anchor
+  dotTags: string[]; // extracted Readwise tags associated with the block
 }
 
 interface ReadwiseHighlight {
@@ -83,6 +82,7 @@ interface ReadwiseHighlight {
   highlight_url?: string;
   category: ReadwiseCategory;
   highlighted_at: string; // ISO 8601
+  note?: string;
 }
 
 const READWISE_HIGHLIGHTS_URL = "https://readwise.io/api/v2/highlights/";
@@ -270,7 +270,11 @@ export default class ReviewToReadwisePlugin extends Plugin {
     const results: ExtractedBlock[] = [];
 
     for (const file of files) {
-      let fileHighlights: { cleanedText: string; blockId: string }[] = [];
+      let fileHighlights: {
+        cleanedText: string;
+        blockId: string;
+        dotTags: string[];
+      }[] = [];
 
       await this.app.vault.process(file, (data) => {
         const { newMarkdown, containedTag } = ensureTaggedBlocksHaveIds(
@@ -280,9 +284,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
         );
 
         if (containedTag) {
-          fileHighlights = extractHighlights(newMarkdown, tagName, {
-            stripTagFromText: this.settings.stripTagFromText,
-          });
+          fileHighlights = extractHighlights(newMarkdown, tagName);
         }
 
         return newMarkdown;
@@ -293,6 +295,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
           file,
           cleanedText: h.cleanedText,
           blockId: h.blockId,
+          dotTags: h.dotTags,
         });
       }
     }
@@ -338,7 +341,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
   ): Promise<string | undefined> {
     const vaultUrl = this.buildVaultUrl();
     const highlights: ReadwiseHighlight[] = blocks.map(
-      ({ file, cleanedText, blockId }) => {
+      ({ file, cleanedText, blockId, dotTags }) => {
         const url = this.buildBlockUrl(file, blockId);
         // append file name to text
         const text = `${cleanedText}\n\n(${file.basename})`;
@@ -351,6 +354,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
           highlight_url: url,
           category: this.settings.category,
           highlighted_at: new Date(file.stat.ctime).toISOString(),
+          note: dotTags.map((tag) => `.${tag}`).join(" ") || undefined,
         };
       },
     );
@@ -506,14 +510,6 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
             tweets: "Tweets",
             podcasts: "Podcasts",
           },
-        },
-      },
-      {
-        name: "Strip tag from sent text",
-        desc: "Remove the #tag itself from the highlight text sent to Readwise.",
-        control: {
-          type: "toggle",
-          key: "stripTagFromText",
         },
       },
       {
