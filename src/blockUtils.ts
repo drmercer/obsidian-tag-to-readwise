@@ -39,17 +39,23 @@ export function ensureTaggedBlocksHaveIds(
   generateBlockId: () => string = randomBlockId,
 ): { newMarkdown: string; containedTag: boolean } {
   let containedTag = false;
+
+  function newBlockIdSuffixIfMissing(line: string): string {
+    const parsed = parseLine(line, tagName);
+    if (parsed.hasTag) {
+      containedTag = true;
+    }
+    if (!parsed.hasTag || !!parsed.blockId) {
+      return "";
+    }
+    return ` ^${generateBlockId()}`;
+  }
+
+  // This code structure ensures the processing is non-destructive: we only ever append block IDs to lines that need them.
   const newMarkdown = markdown
     .split("\n")
     .map((line) => {
-      const parsed = parseLine(line, tagName);
-      if (parsed.hasTag) {
-        containedTag = true;
-      }
-      if (!parsed.hasTag || !!parsed.blockId) {
-        return line;
-      }
-      return `${line} ^${generateBlockId()}`;
+      return line + newBlockIdSuffixIfMissing(line);
     })
     .join("\n");
 
