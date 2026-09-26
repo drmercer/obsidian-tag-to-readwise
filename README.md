@@ -17,9 +17,10 @@ as one highlight, with the tag itself stripped out (this is configurable).
 3. Open the plugin settings and paste in your Readwise API token
    (find it at https://readwise.io/access_token). Click "Validate" to
    confirm it works.
-4. Optionally change the tag name (default `review`), the Readwise
-   category assigned to the highlights, and whether synced blocks get
-   automatically re-tagged so they aren't sent twice.
+4. Set the book title and author in the plugin settings. Optionally change
+   the tag name (default `review`), the Readwise category assigned to the
+   highlights, and whether synced blocks get automatically re-tagged so they
+   aren't sent twice.
 
 ## Usage
 
@@ -48,8 +49,8 @@ npm run dev      # watch mode while developing
   block is scanned, the plugin appends a block ID (`^abc123`) to it in the
   file if it doesn't already have one — this is what keeps `highlight_url`
   stable across edits.
-- All highlights are grouped under one fixed book/author (`Dan's Obsidian
-  Notes` / `Dan Mercer` by default, editable in settings).
+- All highlights are grouped under a fixed book title and author configured
+  in the plugin settings.
 - The block's URL is also appended to the highlight text itself as a
   markdown link — `[Note Title](url)` — since Readwise's own "view source"
   affordance isn't always where you want the link; this can be turned off

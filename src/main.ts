@@ -1,5 +1,6 @@
 import {
   App,
+  Modal,
   Notice,
   Plugin,
   PluginSettingTab,
@@ -12,6 +13,36 @@ import {
   extractHighlights,
   filterFilesByModifiedTime,
 } from "./blockUtils";
+
+/** ---------- Modals ---------- */
+
+class MissingSettingsModal extends Modal {
+  constructor(app: App) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h2", { text: "Missing required settings" });
+    contentEl.createEl("p", {
+      text: "Please enter a book title and author in the plugin settings before syncing.",
+    });
+    const btnContainer = contentEl.createDiv({ cls: "modal-button-container" });
+    const okBtn = btnContainer.createEl("button", {
+      text: "OK",
+      cls: "mod-cta",
+    });
+    okBtn.addEventListener("click", () => {
+      this.close();
+    });
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
 
 /** ---------- Types ---------- */
 
@@ -34,8 +65,8 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   tagName: "review",
   category: "articles",
   stripTagFromText: true,
-  bookTitle: "Dan's Obsidian Notes",
-  bookAuthor: "Dan Mercer",
+  bookTitle: "",
+  bookAuthor: "",
   sourceUrlPrefix: "https://danmercer.net",
   appendMarkdownLinkToText: true,
   lastSyncedTime: 0,
@@ -118,6 +149,11 @@ export default class ReviewToReadwisePlugin extends Plugin {
   async runSync(onlyFile?: TFile, options?: { ignoreLastSyncedTime?: boolean }) {
     if (!this.settings.readwiseToken) {
       new Notice("Set your Readwise API token in plugin settings first.");
+      return;
+    }
+
+    if (!this.settings.bookTitle.trim() || !this.settings.bookAuthor.trim()) {
+      new MissingSettingsModal(this.app).open();
       return;
     }
 
@@ -394,6 +430,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Readwise API token")
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- URLs should be lowercase IMO
       .setDesc("Find this at https://readwise.io/access_token")
       .addText((text) => {
         text
@@ -423,6 +460,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       )
       .addText((text) =>
         text
+          // eslint-disable-next-line obsidianmd/ui/sentence-case -- tag should be lowercase
           .setPlaceholder("review")
           .setValue(this.plugin.settings.tagName)
           .onChange(async (value) => {
@@ -470,7 +508,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       )
       .addText((text) =>
         text
-          .setPlaceholder("Dan's Obsidian Notes")
+          .setPlaceholder("My Obsidian notes")
           .setValue(this.plugin.settings.bookTitle)
           .onChange(async (value) => {
             this.plugin.settings.bookTitle = value.trim();
@@ -483,7 +521,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       .setDesc("Author field for every highlight sent to Readwise.")
       .addText((text) =>
         text
-          .setPlaceholder("Dan Mercer")
+          .setPlaceholder("Your name")
           .setValue(this.plugin.settings.bookAuthor)
           .onChange(async (value) => {
             this.plugin.settings.bookAuthor = value.trim();
@@ -494,7 +532,8 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Source link prefix")
       .setDesc(
-        "Prepended to the obsidian:// deep link, e.g. a redirect on your own site, so Readwise renders it as a clickable link instead of an inert custom URL scheme. Leave blank to use the raw obsidian:// link.",
+        // eslint-disable-next-line obsidianmd/ui/sentence-case -- URLs should be lowercase IMO
+        'Prepended to the obsidian:// deep link. Use an https URL that redirects to the obsidian:// link, like "https://danmercer.net/", to make Readwise render it as a clickable link instead of an inert custom URL scheme. Leave blank to use the raw obsidian:// link.',
       )
       .addText((text) =>
         text
@@ -509,7 +548,7 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Append link to highlight text")
       .setDesc(
-        "Also add a markdown link back to the note, using its title as link text, at the end of the highlight itself.",
+        "Also add a Markdown link back to the note, using its title as link text, at the end of the highlight itself.",
       )
       .addToggle((toggle) =>
         toggle
