@@ -198,8 +198,8 @@ describe("extractHighlights", () => {
       "Line 1 #review ^id12345\nUntagged line ^id67890\nLine 2 #review ^idabcde";
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
-      { cleanedText: "Line 1", blockId: "id12345" },
-      { cleanedText: "Line 2", blockId: "idabcde" },
+      { cleanedText: "Line 1", blockId: "id12345", dotTags: [] },
+      { cleanedText: "Line 2", blockId: "idabcde", dotTags: [] },
     ]);
   });
 
@@ -212,14 +212,102 @@ describe("extractHighlights", () => {
   it("handles tag names provided with leading hash", () => {
     const input = "Line 1 #review ^id12345";
     const res = extractHighlights(input, "#review");
-    expect(res).toEqual([{ cleanedText: "Line 1", blockId: "id12345" }]);
+    expect(res).toEqual([{ cleanedText: "Line 1", blockId: "id12345", dotTags: [] }]);
   });
 
   it("extracts highlights when tag is in the middle of the line with tag stripping enabled", () => {
     const input = "A line with #review in the middle ^123456";
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
-      { cleanedText: "A line with #review in the middle", blockId: "123456" },
+      { cleanedText: "A line with #review in the middle", blockId: "123456", dotTags: [] },
+    ]);
+  });
+
+  it("includes nested list items with normalized indentation when a list item is tagged", () => {
+    const input = [
+      "- Parent item #review ^item123",
+      "  - Child item 1",
+      "  - Child item 2",
+      "    - Grandchild item #other",
+      "- Sibling item",
+    ].join("\n");
+
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      {
+        cleanedText: "- Parent item\n  - Child item 1\n  - Child item 2\n    - Grandchild item #other",
+        blockId: "item123",
+        dotTags: [],
+      },
+    ]);
+  });
+
+  it("normalizes indentation when the tagged list item itself is indented", () => {
+    const input = [
+      "  - Indented parent #review ^item456",
+      "    - Child line 1",
+      "      - Grandchild line",
+      "  - Indented sibling",
+    ].join("\n");
+
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      {
+        cleanedText: "- Indented parent\n  - Child line 1\n    - Grandchild line",
+        blockId: "item456",
+        dotTags: [],
+      },
+    ]);
+  });
+
+  it("stops nested inclusion on a blank line or sibling/parent list item", () => {
+    const input = [
+      "1. First numbered item #review ^num123",
+      "   - Nested item",
+      "",
+      "   - Item after blank line",
+    ].join("\n");
+
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      {
+        cleanedText: "1. First numbered item\n   - Nested item",
+        blockId: "num123",
+        dotTags: [],
+      },
+    ]);
+  });
+
+  it("does not include subsequent lines for tagged non-list items", () => {
+    const input = [
+      "Regular paragraph line #review ^para123",
+      "  Indented line under paragraph",
+      "  Another line",
+    ].join("\n");
+
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      {
+        cleanedText: "Regular paragraph line",
+        blockId: "para123",
+        dotTags: [],
+      },
+    ]);
+  });
+
+  it("does not apply cleaning to additional nested lines", () => {
+    const input = [
+      "- Main list item #review .tag1 ^main123",
+      "  - Nested line with #review .tag2 ^nested456",
+    ].join("\n");
+
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      {
+        cleanedText: "- Main list item\n  - Nested line with #review .tag2 ^nested456",
+        blockId: "main123",
+        dotTags: ["tag1"],
+      },
     ]);
   });
 });
