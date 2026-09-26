@@ -150,6 +150,7 @@ export function extractHighlights(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
     const parsed = parseLine(line, tagName);
     if (parsed.hasTag && parsed.blockId) {
       let cleanedText = parsed.cleanedText;
@@ -157,16 +158,18 @@ export function extractHighlights(
       const isListItem = /^\s*([-*+]|\d+[.)])(\s|$)/.test(line);
       if (isListItem) {
         const indentMatch = line.match(/^(\s*)/);
-        const baseIndentLength = indentMatch ? indentMatch[1].length : 0;
+        const baseIndentLength =
+          indentMatch && indentMatch[1] ? indentMatch[1].length : 0;
 
         let j = i + 1;
         while (j < lines.length) {
           const subLine = lines[j];
-          if (subLine.trim() === "") {
+          if (subLine === undefined || subLine.trim() === "") {
             break;
           }
           const subIndentMatch = subLine.match(/^(\s*)/);
-          const subIndentLength = subIndentMatch ? subIndentMatch[1].length : 0;
+          const subIndentLength =
+            subIndentMatch && subIndentMatch[1] ? subIndentMatch[1].length : 0;
           if (subIndentLength <= baseIndentLength) {
             break;
           }
