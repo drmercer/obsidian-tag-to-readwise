@@ -41,20 +41,15 @@ npm run dev      # watch mode while developing
 
 - Highlights are created via `POST https://readwise.io/api/v2/highlights/`,
   batched at 50 per request.
-- Each highlight includes a `source_url` *and* `highlight_url`, both pointing
+- Each highlight includes a `highlight_url` pointing
   at the specific block via an Obsidian block reference
-  (`.../obsidian://open?vault=...&file=<path>#^blockid`), prefixed with
-  `https://danmercer.net` (configurable, blank = raw link) since Readwise
-  doesn't render custom URL schemes as clickable. The first time a `#review`
+  (`obsidian://open?vault=...&file=<path>#^blockid`). The first time a `#review`
   block is scanned, the plugin appends a block ID (`^abc123`) to it in the
   file if it doesn't already have one — this is what keeps `highlight_url`
   stable across edits.
 - All highlights are grouped under a fixed book title and author configured
   in the plugin settings.
-- The block's URL is also appended to the highlight text itself as a
-  markdown link — `[Note Title](url)` — since Readwise's own "view source"
-  affordance isn't always where you want the link; this can be turned off
-  in settings.
+- The block's URL is also appended to the highlight text itself.
 - 429 responses are retried up to 3 times using the `Retry-After` header.
 - Requests go through Obsidian's `requestUrl` (not `fetch`) so they aren't
   blocked by CORS.
@@ -78,10 +73,6 @@ npm run dev      # watch mode while developing
 
 ## Caveats worth knowing about
 
-- Readwise's highlights API doesn't expose a "delete on re-sync" concept —
-  if you run the sync twice without the re-tag option on, you'll get
-  duplicate highlights. Turn on "Re-tag synced blocks" to avoid that, or
-  dedupe periodically inside Readwise.
 - Block splitting is done on blank lines, which matches how most people
   write `#review` tags at the end of a paragraph or bullet — but a tag
   placed alone on a blank-separated line will itself become a (probably

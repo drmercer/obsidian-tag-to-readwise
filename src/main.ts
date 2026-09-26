@@ -56,8 +56,6 @@ interface ReviewToReadwiseSettings {
   stripTagFromText: boolean;
   bookTitle: string; // fixed Readwise "book" title all highlights are grouped under
   bookAuthor: string; // fixed Readwise author for all highlights
-  sourceUrlPrefix: string; // prepended to the obsidian:// URL so Readwise treats it as a clickable http(s) link
-  appendMarkdownLinkToText: boolean; // add "[Note Title](url)" to the end of the highlight text itself
   lastSyncedTime: number; // timestamp in ms of last successful sync
 }
 
@@ -68,8 +66,6 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   stripTagFromText: true,
   bookTitle: "",
   bookAuthor: "",
-  sourceUrlPrefix: "https://danmercer.net",
-  appendMarkdownLinkToText: true,
   lastSyncedTime: 0,
 };
 
@@ -138,7 +134,8 @@ export default class ReviewToReadwisePlugin extends Plugin {
   }
 
   async loadSettings() {
-    const loaded = (await this.loadData()) as Partial<ReviewToReadwiseSettings> | null;
+    const loaded =
+      (await this.loadData()) as Partial<ReviewToReadwiseSettings> | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
   }
 
@@ -147,7 +144,10 @@ export default class ReviewToReadwisePlugin extends Plugin {
   }
 
   /** Entry point: scan (one file or whole vault), send to Readwise, optionally mark synced. */
-  async runSync(onlyFile?: TFile, options?: { ignoreLastSyncedTime?: boolean }) {
+  async runSync(
+    onlyFile?: TFile,
+    options?: { ignoreLastSyncedTime?: boolean },
+  ) {
     if (!this.settings.readwiseToken) {
       new Notice("Set your Readwise API token in plugin settings first.");
       return;
@@ -311,10 +311,8 @@ export default class ReviewToReadwisePlugin extends Plugin {
     return id;
   }
 
-  /** Builds the obsidian:// deep link straight to a specific block, optionally
-   * prefixed with a public https:// redirect so links that leave Obsidian
-   * (like inside Readwise) render as clickable links instead of an inert
-   * custom URL scheme. This same URL doubles as the Readwise highlight_url,
+  /** Builds the obsidian:// deep link straight to a specific block.
+   * This same URL doubles as the Readwise highlight_url,
    * so it must stay identical across syncs as long as the block ID doesn't change. */
   private buildBlockUrl(file: TFile, blockId: string): string {
     const vaultName = this.app.vault.getName();
@@ -322,8 +320,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
     const encodedVault = encodeURIComponent(vaultName);
     const obsidianUrl = `obsidian://open?vault=${encodedVault}&file=${encodedTarget}`;
 
-    const prefix = this.settings.sourceUrlPrefix.trim().replace(/\/+$/, "");
-    return prefix ? `${prefix}/${obsidianUrl}` : obsidianUrl;
+    return obsidianUrl;
   }
 
   /** Builds the obsidian:// deep link to open the vault */
@@ -332,19 +329,19 @@ export default class ReviewToReadwisePlugin extends Plugin {
     const encodedVault = encodeURIComponent(vaultName);
     const obsidianUrl = `obsidian://open?vault=${encodedVault}&__cachebuster=1`;
 
-    const prefix = this.settings.sourceUrlPrefix.trim().replace(/\/+$/, "");
-    return prefix ? `${prefix}/${obsidianUrl}` : obsidianUrl;
+    return obsidianUrl;
   }
 
   /** Sends extracted blocks to Readwise in batches. Returns highlights_url if available. */
-  private async sendBlocksToReadwise(blocks: ExtractedBlock[]): Promise<string | undefined> {
+  private async sendBlocksToReadwise(
+    blocks: ExtractedBlock[],
+  ): Promise<string | undefined> {
     const vaultUrl = this.buildVaultUrl();
     const highlights: ReadwiseHighlight[] = blocks.map(
       ({ file, cleanedText, blockId }) => {
         const url = this.buildBlockUrl(file, blockId);
-        const text = this.settings.appendMarkdownLinkToText
-          ? `${cleanedText}\n\n[${file.basename}](${url})`
-          : cleanedText;
+        // append file name to text
+        const text = `${cleanedText}\n\n(${file.basename})`;
 
         return {
           text,
@@ -392,7 +389,8 @@ export default class ReviewToReadwisePlugin extends Plugin {
             item &&
             typeof item === "object" &&
             "highlights_url" in item &&
-            typeof (item as Record<string, unknown>).highlights_url === "string" &&
+            typeof (item as Record<string, unknown>).highlights_url ===
+              "string" &&
             (item as Record<string, unknown>).highlights_url
           ) {
             return (item as Record<string, unknown>).highlights_url as string;
@@ -405,7 +403,9 @@ export default class ReviewToReadwisePlugin extends Plugin {
     // Readwise rate-limits at 429 and tells you how long to wait.
     if (res.status === 429 && attempt <= 3) {
       const retryAfter = Number(res.headers["retry-after"] ?? 5);
-      await new Promise((resolve) => window.setTimeout(resolve, retryAfter * 1000));
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, retryAfter * 1000),
+      );
       return this.sendBatchWithRetry(batch, attempt + 1);
     }
 
@@ -477,6 +477,24 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
         },
       },
       {
+        name: "Book title",
+        desc: "All highlights are grouped under this single Readwise book/title.",
+        control: {
+          type: "text",
+          key: "bookTitle",
+          placeholder: "My Obsidian notes",
+        },
+      },
+      {
+        name: "Author",
+        desc: "Author field for every highlight sent to Readwise.",
+        control: {
+          type: "text",
+          key: "bookAuthor",
+          placeholder: "Your name",
+        },
+      },
+      {
         name: "Readwise category",
         desc: "Category assigned to highlights created from your notes.",
         control: {
@@ -496,42 +514,6 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
         control: {
           type: "toggle",
           key: "stripTagFromText",
-        },
-      },
-      {
-        name: "Book title",
-        desc: "All highlights are grouped under this single Readwise book/title.",
-        control: {
-          type: "text",
-          key: "bookTitle",
-          placeholder: "My Obsidian notes",
-        },
-      },
-      {
-        name: "Author",
-        desc: "Author field for every highlight sent to Readwise.",
-        control: {
-          type: "text",
-          key: "bookAuthor",
-          placeholder: "Your name",
-        },
-      },
-      {
-        name: "Source link prefix",
-        desc:
-          'Prepended to the obsidian:// deep link. Use an https URL that redirects to the obsidian:// link, like "https://danmercer.net/", to make Readwise render it as a clickable link instead of an inert custom URL scheme. Leave blank to use the raw obsidian:// link.',
-        control: {
-          type: "text",
-          key: "sourceUrlPrefix",
-          placeholder: "https://example.com",
-        },
-      },
-      {
-        name: "Append link to highlight text",
-        desc: "Also add a Markdown link back to the note, using its title as link text, at the end of the highlight itself.",
-        control: {
-          type: "toggle",
-          key: "appendMarkdownLinkToText",
         },
       },
       {
