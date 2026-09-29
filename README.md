@@ -19,8 +19,8 @@ as one highlight, with the tag itself stripped out (this is configurable).
    confirm it works.
 4. Set the book title and author in the plugin settings. Optionally change
    the tag name (default `review`), the Readwise category assigned to the
-   highlights, and whether synced blocks get automatically re-tagged so they
-   aren't sent twice.
+   highlights, or toggle whether automatic syncs happen on vault load (enabled
+   by default).
 
 ## Usage
 
