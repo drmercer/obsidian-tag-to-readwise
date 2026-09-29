@@ -56,6 +56,7 @@ interface ReviewToReadwiseSettings {
   bookTitle: string; // fixed Readwise "book" title all highlights are grouped under
   bookAuthor: string; // fixed Readwise author for all highlights
   lastSyncedTime: number; // timestamp in ms of last successful sync
+  autoSyncOnLoad: boolean;
 }
 
 const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
@@ -65,6 +66,7 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   bookTitle: "",
   bookAuthor: "",
   lastSyncedTime: 0,
+  autoSyncOnLoad: true,
 };
 
 interface ExtractedBlock {
@@ -131,6 +133,145 @@ export default class ReviewToReadwisePlugin extends Plugin {
     });
 
     this.addSettingTab(new ReviewToReadwiseSettingTab(this.app, this));
+
+    this.app.workspace.onLayoutReady(() => {
+      void this.handleAutoSyncOnLoad();
+    });
+  }
+
+  /** Returns true if all required settings are configured. */
+  isConfigured(): boolean {
+    const token = this.settings.readwiseToken.trim();
+    const bookTitle = this.settings.bookTitle.trim();
+    const bookAuthor = this.settings.bookAuthor.trim();
+    const tagName = this.settings.tagName.trim().replace(/^#/, "");
+
+    return Boolean(token && bookTitle && bookAuthor && tagName);
+  }
+
+  /** Handles automatic sync when vault loading is completed. */
+  private async handleAutoSyncOnLoad() {
+    if (!this.settings.autoSyncOnLoad) {
+      return;
+    }
+
+    if (!this.isConfigured()) {
+      return;
+    }
+
+    await this.waitForObsidianSync();
+    await this.runSync();
+  }
+
+  /**
+   * If Obsidian Sync plugin is active and syncing, waits until syncing finishes
+   * (or times out after 30 seconds).
+   */
+  async waitForObsidianSync(timeoutMs = 30000): Promise<void> {
+    const internalPlugins = (this.app as unknown as Record<string, unknown>).internalPlugins as
+      | {
+          getPluginById?: (id: string) => { enabled?: boolean; instance?: unknown } | undefined;
+          plugins?: Record<string, { enabled?: boolean; instance?: unknown }>;
+        }
+      | undefined;
+
+    const syncPlugin =
+      internalPlugins?.getPluginById?.("sync") ?? internalPlugins?.plugins?.["sync"];
+
+    if (!syncPlugin || !syncPlugin.enabled || !syncPlugin.instance) {
+      return;
+    }
+
+    const syncInstance = syncPlugin.instance as Record<string, unknown>;
+
+    const isSyncing = (): boolean => {
+      try {
+        if (typeof syncInstance.isSyncing === "function") {
+          return Boolean((syncInstance.isSyncing as () => boolean)());
+        }
+        if (typeof syncInstance.isSyncing === "boolean") {
+          return syncInstance.isSyncing;
+        }
+        if (typeof syncInstance.getSyncStatus === "function") {
+          const status = (syncInstance.getSyncStatus as () => unknown)();
+          return status === "syncing" || status === "downloading" || status === "uploading";
+        }
+        if (typeof syncInstance.getStatus === "function") {
+          const status = (syncInstance.getStatus as () => unknown)();
+          return status === "syncing" || status === "downloading" || status === "uploading";
+        }
+        if (typeof syncInstance.status === "string") {
+          return (
+            syncInstance.status === "syncing" ||
+            syncInstance.status === "downloading" ||
+            syncInstance.status === "uploading"
+          );
+        }
+        if (typeof syncInstance.state === "string") {
+          return (
+            syncInstance.state === "syncing" ||
+            syncInstance.state === "downloading" ||
+            syncInstance.state === "uploading"
+          );
+        }
+      } catch {
+        // ignore
+      }
+      return false;
+    };
+
+    if (!isSyncing()) {
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      let resolved = false;
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          resolve();
+        }
+      };
+
+      const timer = window.setTimeout(done, timeoutMs);
+
+      const interval = window.setInterval(() => {
+        if (!isSyncing()) {
+          done();
+        }
+      }, 500);
+
+      const onStatusChange = () => {
+        if (!isSyncing()) {
+          done();
+        }
+      };
+
+      try {
+        if (typeof syncInstance.on === "function") {
+          (syncInstance.on as (event: string, fn: () => void) => void)("status-change", onStatusChange);
+          (syncInstance.on as (event: string, fn: () => void) => void)("status-changed", onStatusChange);
+          (syncInstance.on as (event: string, fn: () => void) => void)("sync", onStatusChange);
+        }
+      } catch {
+        // ignore
+      }
+
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        window.clearInterval(interval);
+        try {
+          if (typeof syncInstance.off === "function") {
+            (syncInstance.off as (event: string, fn: () => void) => void)("status-change", onStatusChange);
+            (syncInstance.off as (event: string, fn: () => void) => void)("status-changed", onStatusChange);
+            (syncInstance.off as (event: string, fn: () => void) => void)("sync", onStatusChange);
+          }
+        } catch {
+          // ignore
+        }
+      };
+    });
   }
 
   async loadSettings() {
@@ -510,6 +651,14 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
             tweets: "Tweets",
             podcasts: "Podcasts",
           },
+        },
+      },
+      {
+        name: "Auto-sync on load",
+        desc: "Automatically sync modified blocks to Readwise when the vault is loaded.",
+        control: {
+          type: "toggle",
+          key: "autoSyncOnLoad",
         },
       },
       {
