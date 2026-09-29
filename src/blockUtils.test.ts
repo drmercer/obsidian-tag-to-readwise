@@ -278,33 +278,33 @@ describe("extractHighlights", () => {
     ]);
   });
 
-  it("does not include subsequent lines for tagged non-list items", () => {
+  it("includes subsequent indented lines for tagged non-list items", () => {
     const input = [
       "Regular paragraph line #review ^para123",
       "  Indented line under paragraph",
-      "  Another line",
+      "  Another line ^block456",
     ].join("\n");
 
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
       {
-        cleanedText: "Regular paragraph line",
+        cleanedText: "Regular paragraph line\n  Indented line under paragraph\n  Another line",
         blockId: "para123",
         dotTags: [],
       },
     ]);
   });
 
-  it("does not apply cleaning to additional nested lines", () => {
+  it("uses parseLine on additional nested lines to strip block IDs", () => {
     const input = [
       "- Main list item #review .tag1 ^main123",
-      "  - Nested line with #review .tag2 ^nested456",
+      "  - Nested line ^nested456",
     ].join("\n");
 
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
       {
-        cleanedText: "- Main list item\n  - Nested line with #review .tag2 ^nested456",
+        cleanedText: "- Main list item\n  - Nested line",
         blockId: "main123",
         dotTags: ["tag1"],
       },

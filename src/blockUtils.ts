@@ -155,29 +155,23 @@ export function extractHighlights(
     if (parsed.hasTag && parsed.blockId) {
       let cleanedText = parsed.cleanedText;
 
-      const isListItem = /^\s*([-*+]|\d+[.)])(\s|$)/.test(line);
-      if (isListItem) {
-        const indentMatch = line.match(/^(\s*)/);
-        const baseIndentLength =
-          indentMatch && indentMatch[1] ? indentMatch[1].length : 0;
+      const baseIndentLength = line.match(/^(\s*)/)?.[1]?.length ?? 0;
 
-        let j = i + 1;
-        while (j < lines.length) {
-          const subLine = lines[j];
-          if (subLine === undefined || subLine.trim() === "") {
-            break;
-          }
-          const subIndentMatch = subLine.match(/^(\s*)/);
-          const subIndentLength =
-            subIndentMatch && subIndentMatch[1] ? subIndentMatch[1].length : 0;
-          if (subIndentLength <= baseIndentLength) {
-            break;
-          }
-          cleanedText += "\n" + subLine.slice(baseIndentLength);
-          j++;
+      let j = i + 1;
+      while (j < lines.length) {
+        const subLine = lines[j];
+        if (subLine === undefined || subLine.trim() === "") {
+          break;
         }
-        i = j - 1;
+        const subIndentLength = subLine.match(/^(\s*)/)?.[1]?.length ?? 0;
+        if (subIndentLength <= baseIndentLength) {
+          break;
+        }
+        const parsedSub = parseLine(subLine, tagName);
+        cleanedText += "\n" + parsedSub.cleanedText.slice(baseIndentLength);
+        j++;
       }
+      i = j - 1;
 
       highlights.push({
         cleanedText,
