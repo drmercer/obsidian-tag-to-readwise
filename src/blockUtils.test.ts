@@ -310,4 +310,30 @@ describe("extractHighlights", () => {
       },
     ]);
   });
+
+  it("handles multiple highlights with nested lines correctly", () => {
+    const input = [
+      "- First block #review ^first12",
+      "  - Child 1a",
+      "  - Child 1b",
+      "- Untagged sibling",
+      "- Second block #review ^second34",
+      "  - Child 2a",
+      "    - Grandchild 2a1",
+    ].join("\n");
+
+    const res = extractHighlights(input, "review");
+    expect(res).toEqual([
+      {
+        cleanedText: "- First block\n  - Child 1a\n  - Child 1b",
+        blockId: "first12",
+        dotTags: [],
+      },
+      {
+        cleanedText: "- Second block\n  - Child 2a\n    - Grandchild 2a1",
+        blockId: "second34",
+        dotTags: [],
+      },
+    ]);
+  });
 });
