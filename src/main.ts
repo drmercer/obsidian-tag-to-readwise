@@ -4,6 +4,7 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
+  SecretComponent,
   Setting,
   SettingDefinitionItem,
   TFile,
@@ -157,12 +158,21 @@ export default class ReviewToReadwisePlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  /** Retrieves the secret Readwise API token from SecretStorage using the configured secret name. */
+  getReadwiseToken(): string {
+    if (!this.settings.readwiseToken) {
+      return "";
+    }
+    return this.app.secretStorage.getSecret(this.settings.readwiseToken) ?? "";
+  }
+
   /** Entry point: scan (one file or whole vault), send to Readwise, optionally mark synced. */
   async runSync(
     onlyFile?: TFile,
     options?: { ignoreLastSyncedTime?: boolean },
   ) {
-    if (!this.settings.readwiseToken) {
+    const token = this.getReadwiseToken();
+    if (!token) {
       new Notice("Set your Readwise API token in plugin settings first.");
       return;
     }
@@ -221,7 +231,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
 
     let highlightsUrl: string | undefined;
     try {
-      highlightsUrl = await this.sendBlocksToReadwise(blocks);
+      highlightsUrl = await this.sendBlocksToReadwise(blocks, token);
     } catch (err) {
       notice.hide();
       new Notice(`Readwise sync failed: ${(err as Error).message}`);
@@ -359,6 +369,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
   /** Sends extracted blocks to Readwise in batches. Returns highlights_url if available. */
   private async sendBlocksToReadwise(
     blocks: ExtractedBlock[],
+    token: string,
   ): Promise<string | undefined> {
     const vaultUrl = this.buildVaultUrl();
     const highlights: ReadwiseHighlight[] = blocks.map(
@@ -383,7 +394,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
     let highlightsUrl: string | undefined;
     for (let i = 0; i < highlights.length; i += BATCH_SIZE) {
       const batch = highlights.slice(i, i + BATCH_SIZE);
-      const url = await this.sendBatchWithRetry(batch);
+      const url = await this.sendBatchWithRetry(batch, token);
       if (url && !highlightsUrl) {
         highlightsUrl = url;
       }
@@ -393,13 +404,14 @@ export default class ReviewToReadwisePlugin extends Plugin {
 
   private async sendBatchWithRetry(
     batch: ReadwiseHighlight[],
+    token: string,
     attempt = 1,
   ): Promise<string | undefined> {
     const res = await requestUrl({
       url: READWISE_HIGHLIGHTS_URL,
       method: "POST",
       headers: {
-        Authorization: `Token ${this.settings.readwiseToken}`,
+        Authorization: `Token ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ highlights: batch }),
@@ -431,7 +443,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
       await new Promise((resolve) =>
         window.setTimeout(resolve, retryAfter * 1000),
       );
-      return this.sendBatchWithRetry(batch, attempt + 1);
+      return this.sendBatchWithRetry(batch, token, attempt + 1);
     }
 
     throw new Error(`Readwise API returned ${res.status}: ${res.text}`);
@@ -467,25 +479,23 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
     return [
       {
         name: "Readwise API token",
-        desc: "Find this at https://readwise.io/access_token",
+        desc: "Select a secret from SecretStorage",
         render: (setting: Setting) => {
           setting
-            .addText((text) => {
-              text
-                .setPlaceholder("Enter your token")
-                .setValue(this.plugin.settings.readwiseToken)
-                .onChange(async (value) => {
-                  this.plugin.settings.readwiseToken = value.trim();
-                  await this.plugin.saveSettings();
-                });
-              text.inputEl?.setAttribute("type", "password");
-            })
+            .addComponent(
+              (el) =>
+                new SecretComponent(this.app, el)
+                  .setValue(this.plugin.settings.readwiseToken)
+                  .onChange(async (value) => {
+                    this.plugin.settings.readwiseToken = value;
+                    await this.plugin.saveSettings();
+                  }),
+            )
             .addButton((btn) =>
               btn.setButtonText("Validate").onClick(async () => {
                 btn.setDisabled(true).setButtonText("Checking…");
-                const ok = await this.plugin.validateToken(
-                  this.plugin.settings.readwiseToken,
-                );
+                const token = this.plugin.getReadwiseToken();
+                const ok = await this.plugin.validateToken(token);
                 new Notice(ok ? "Token is valid." : "Token is invalid.");
                 btn.setDisabled(false).setButtonText("Validate");
               }),
