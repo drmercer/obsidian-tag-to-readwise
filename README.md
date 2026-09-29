@@ -2,7 +2,9 @@
 
 An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise as highlights.
 
-> ⚠️ NOTE: If you want to sync your highlights **from** Readwise **to** Obsidian, use [the official Readwise plugin for Obsidian](https://docs.readwise.io/readwise/docs/exporting-highlights/obsidian). This plugin does the opposite: syncs your own notes into Readwise so you can review them as "highlights".
+⚠️ NOTE: If you want to sync your highlights **from** Readwise **to** Obsidian, use [the official Readwise plugin for Obsidian](https://docs.readwise.io/readwise/docs/exporting-highlights/obsidian). This plugin does the opposite: syncs your own notes into Readwise so you can review them as "highlights".
+
+This plugin is not built or endorsed by Readwise. I am just an avid Readwise user, and this is just a hobby project I use to review my personal notes about [focus-first technology](https://danmercer.net/p/focus-first-tech) and other topics. :)
 
 ## Features
 
@@ -30,4 +32,4 @@ An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise a
 - Command palette → "Sync #review blocks in current file to Readwise"
 - Or click the "book with up arrow" icon in the ribbon (leftmost sidebar on desktop)
 
-> ⚠️ WARNING: If you rename or move a note in Readwise, any already-synced highlights from that note will be duplicated in Readwise, because the highlight URL will be different. Deleting the `^abc123` marker from a synced block has the same effect, since a new ID gets generated next time it's scanned.
+⚠️ WARNING: If you rename or move a note in Readwise, any already-synced highlights from that note will be duplicated in Readwise, because the highlight URL will be different. Deleting the `^abc123` marker from a synced block has the same effect, since a new ID gets generated next time it's scanned.
