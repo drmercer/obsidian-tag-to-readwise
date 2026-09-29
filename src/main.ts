@@ -56,6 +56,7 @@ interface ReviewToReadwiseSettings {
   bookTitle: string; // fixed Readwise "book" title all highlights are grouped under
   bookAuthor: string; // fixed Readwise author for all highlights
   lastSyncedTime: number; // timestamp in ms of last successful sync
+  readwiseUrl?: string; // Readwise web URL for the book
 }
 
 const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
@@ -65,6 +66,7 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   bookTitle: "",
   bookAuthor: "",
   lastSyncedTime: 0,
+  readwiseUrl: "",
 };
 
 interface ExtractedBlock {
@@ -127,6 +129,18 @@ export default class ReviewToReadwisePlugin extends Plugin {
           void this.runSync(file);
         }
         return true;
+      },
+    });
+
+    this.addCommand({
+      id: "open-synced-highlights-in-readwise",
+      name: "Open synced highlights in Readwise",
+      callback: () => {
+        if (this.settings.readwiseUrl) {
+          window.open(this.settings.readwiseUrl, "_blank");
+        } else {
+          new Notice("Please run a sync first.");
+        }
       },
     });
 
@@ -215,8 +229,15 @@ export default class ReviewToReadwisePlugin extends Plugin {
       return;
     }
 
+    if (highlightsUrl) {
+      this.settings.readwiseUrl = highlightsUrl;
+    }
+
     if (!onlyFile) {
       this.settings.lastSyncedTime = syncStartTime;
+    }
+
+    if (highlightsUrl || !onlyFile) {
       await this.saveSettings();
     }
 
