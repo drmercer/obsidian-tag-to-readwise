@@ -22,8 +22,9 @@ An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise a
    (find it at https://readwise.io/access_token). Click "Validate" to
    confirm it works.
 4. Set the book title and author in the plugin settings. Optionally change
-   the tag name (default `review`) and the Readwise category assigned to the
-   highlights.
+   the tag name (default `review`), the Readwise category assigned to the
+   highlights, or toggle whether automatic syncs happen on vault load (enabled
+   by default).
 
 ## Usage
 

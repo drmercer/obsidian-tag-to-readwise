@@ -51,6 +51,7 @@ class MissingSettingsModal extends Modal {
 type ReadwiseCategory = "articles" | "books" | "tweets" | "podcasts";
 
 interface ReviewToReadwiseSettings {
+  autoSyncOnLoad: boolean;
   readwiseToken: string;
   tagName: string; // without the leading '#'
   category: ReadwiseCategory;
@@ -61,6 +62,7 @@ interface ReviewToReadwiseSettings {
 }
 
 const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
+  autoSyncOnLoad: true,
   readwiseToken: "",
   tagName: "review",
   category: "articles",
@@ -146,6 +148,21 @@ export default class ReviewToReadwisePlugin extends Plugin {
     });
 
     this.addSettingTab(new ReviewToReadwiseSettingTab(this.app, this));
+
+    this.app.workspace.onLayoutReady(() => {
+      if (this.settings.autoSyncOnLoad && this.isConfigured()) {
+        void this.runSync();
+      }
+    });
+  }
+
+  /** Checks if all required settings are configured before performing an auto-sync. */
+  isConfigured(): boolean {
+    const token = this.getReadwiseToken();
+    const bookTitle = this.settings.bookTitle.trim();
+    const bookAuthor = this.settings.bookAuthor.trim();
+    const tagName = this.settings.tagName.trim().replace(/^#/, "");
+    return Boolean(token && bookTitle && bookAuthor && tagName);
   }
 
   async loadSettings() {
@@ -477,6 +494,14 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
       : "Never";
 
     return [
+      {
+        name: "Auto-sync on load",
+        desc: "Automatically sync modified blocks when the vault is loaded.",
+        control: {
+          type: "toggle",
+          key: "autoSyncOnLoad",
+        },
+      },
       {
         name: "Readwise API token",
         desc: "Select a secret from SecretStorage",
