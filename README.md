@@ -3,7 +3,7 @@
 An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise as highlights.
 
 > [!IMPORTANT]
-> If you want to sync your highlights **from** Readwise **to** Obsidian, use theofficial Readwise Obsidian plugin. This plugin does the opposite: syncs your own notes into Readwise so you can review them as "highlights".
+> If you want to sync your highlights **from** Readwise **to** Obsidian, use [the official Readwise Obsidian plugin](https://docs.readwise.io/readwise/docs/exporting-highlights/obsidian). This plugin does the opposite: syncs your own notes into Readwise so you can review them as "highlights".
 
 ## Features
 
