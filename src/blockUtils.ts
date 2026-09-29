@@ -148,11 +148,33 @@ export function extractHighlights(
   const highlights: Highlight[] = [];
   const lines = markdown.split("\n");
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === undefined) continue;
     const parsed = parseLine(line, tagName);
     if (parsed.hasTag && parsed.blockId) {
+      let cleanedText = parsed.cleanedText;
+
+      const baseIndentLength = line.match(/^(\s*)/)?.[1]?.length ?? 0;
+
+      let j = i + 1;
+      while (j < lines.length) {
+        const subLine = lines[j];
+        if (subLine === undefined || subLine.trim() === "") {
+          break;
+        }
+        const subIndentLength = subLine.match(/^(\s*)/)?.[1]?.length ?? 0;
+        if (subIndentLength <= baseIndentLength) {
+          break;
+        }
+        const parsedSub = parseLine(subLine, tagName);
+        cleanedText += "\n" + parsedSub.cleanedText.slice(baseIndentLength);
+        j++;
+      }
+      i = j - 1;
+
       highlights.push({
-        cleanedText: parsed.cleanedText,
+        cleanedText,
         blockId: parsed.blockId,
         dotTags: parsed.dotTags,
       });
