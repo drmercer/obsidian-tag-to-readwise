@@ -9,9 +9,7 @@ An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise a
 
 - Syncs all blocks tagged with `#review` (configurable) into Readwise as highlights.
 - By default, syncs only the notes that have changed since the last sync.
-- Readwise's "View Original highlight" action will take you straight to the note in your Obsidian vault (using an `obsidian://` URL). The plugin adds a block ID to all tagged blocks to enable this deep linking (something like `^abc123` at the end of the line). 
-
-> [!WARNING] If you rename or move a note in Readwise, any already-synced highlights from that notes will be duplicated in Readwise, because the highlight URL will be different. Deleting the `^abc123` marker from a synced block has the same effect, since a new ID gets generated next time it's scanned.
+- Readwise's "View Original highlight" action will take you straight to the note in your Obsidian vault (using an `obsidian://` URL). The plugin adds a block ID to all tagged blocks to enable this deep linking (something like `^abc123` at the end of the line).
 
 ## Setup
 
@@ -32,3 +30,6 @@ An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise a
 - Command palette → "Re-sync ALL highlights to Readwise" (ignores the last synced time and syncs all files)
 - Command palette → "Sync #review blocks in current file to Readwise"
 - Or click the "book with up arrow" icon in the ribbon (leftmost sidebar on desktop)
+
+> [!WARNING]
+> If you rename or move a note in Readwise, any already-synced highlights from that notes will be duplicated in Readwise, because the highlight URL will be different. Deleting the `^abc123` marker from a synced block has the same effect, since a new ID gets generated next time it's scanned.
