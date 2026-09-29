@@ -198,8 +198,8 @@ describe("extractHighlights", () => {
       "Line 1 #review ^id12345\nUntagged line ^id67890\nLine 2 #review ^idabcde";
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
-      { cleanedText: "Line 1", blockId: "id12345" },
-      { cleanedText: "Line 2", blockId: "idabcde" },
+      { cleanedText: "Line 1", blockId: "id12345", dotTags: [] },
+      { cleanedText: "Line 2", blockId: "idabcde", dotTags: [] },
     ]);
   });
 
@@ -212,14 +212,14 @@ describe("extractHighlights", () => {
   it("handles tag names provided with leading hash", () => {
     const input = "Line 1 #review ^id12345";
     const res = extractHighlights(input, "#review");
-    expect(res).toEqual([{ cleanedText: "Line 1", blockId: "id12345" }]);
+    expect(res).toEqual([{ cleanedText: "Line 1", blockId: "id12345", dotTags: [] }]);
   });
 
   it("extracts highlights when tag is in the middle of the line with tag stripping enabled", () => {
     const input = "A line with #review in the middle ^123456";
     const res = extractHighlights(input, "review");
     expect(res).toEqual([
-      { cleanedText: "A line with #review in the middle", blockId: "123456" },
+      { cleanedText: "A line with #review in the middle", blockId: "123456", dotTags: [] },
     ]);
   });
 });
