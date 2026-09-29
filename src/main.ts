@@ -495,14 +495,6 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
 
     return [
       {
-        name: "Auto-sync on load",
-        desc: "Automatically sync modified blocks when the vault is loaded.",
-        control: {
-          type: "toggle",
-          key: "autoSyncOnLoad",
-        },
-      },
-      {
         name: "Readwise API token",
         desc: "Select a secret from SecretStorage",
         render: (setting: Setting) => {
@@ -566,6 +558,14 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
             tweets: "Tweets",
             podcasts: "Podcasts",
           },
+        },
+      },
+      {
+        name: "Auto-sync on load",
+        desc: "Automatically sync modified blocks when the vault is loaded.",
+        control: {
+          type: "toggle",
+          key: "autoSyncOnLoad",
         },
       },
       {
