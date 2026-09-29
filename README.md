@@ -8,7 +8,7 @@ This plugin is not built or endorsed by Readwise. I am just an avid Readwise use
 
 ## Features
 
-- Syncs all blocks tagged with `#review` (configurable) into Readwise as highlights.
+- Syncs all blocks tagged with `#review` (or a different tag of your choosing) into Readwise as highlights.
 - By default, syncs only the notes that have changed since the last sync.
 - Readwise's "View Original highlight" action will take you straight to the note in your Obsidian vault (using an `obsidian://` URL). The plugin adds a block ID to all tagged blocks to enable this deep linking (something like `^abc123` at the end of the line).
 
