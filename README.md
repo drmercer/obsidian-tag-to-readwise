@@ -1,18 +1,22 @@
-# Review to Readwise
+# "Tag to Readwise" Obsidian plugin
 
-An Obsidian plugin that finds every block tagged `#review` in your vault
-and sends it to Readwise as a highlight.
+An Obsidian plugin that syncs all blocks tagged with a certain tag to Readwise as highlights.
 
-## What counts as a "block"
+> [!IMPORTANT]
+> If you want to sync your highlights **from** Readwise **to** Obsidian, use theofficial Readwise Obsidian plugin. This plugin does the opposite: syncs your own notes into Readwise so you can review them as "highlights".
 
-Any paragraph, list item, blockquote, etc. — basically any chunk of text
-separated by a blank line — that contains the tag. The whole block is sent
-as one highlight, with the tag itself stripped out (this is configurable).
+## Features
+
+- Syncs all blocks tagged with `#review` (configurable) into Readwise as highlights.
+- By default, syncs only the notes that have changed since the last sync.
+- Readwise's "View Original highlight" action will take you straight to the note in your Obsidian vault (using an `obsidian://` URL). The plugin adds a block ID to all tagged blocks to enable this deep linking (something like `^abc123` at the end of the line). 
+
+> [!WARNING] If you rename or move a note in Readwise, any already-synced highlights from that notes will be duplicated in Readwise, because the highlight URL will be different. Deleting the `^abc123` marker from a synced block has the same effect, since a new ID gets generated next time it's scanned.
 
 ## Setup
 
 1. Copy `manifest.json` and `main.js` (built from `src/main.ts`) into
-   `<your-vault>/.obsidian/plugins/review-to-readwise/`.
+   `<your-vault>/.obsidian/plugins/tag-to-readwise/`.
 2. Reload Obsidian and enable the plugin under Settings → Community plugins.
 3. Open the plugin settings and paste in your Readwise API token
    (find it at https://readwise.io/access_token). Click "Validate" to
@@ -27,57 +31,4 @@ as one highlight, with the tag itself stripped out (this is configurable).
 - Command palette → "Sync all #review blocks to Readwise" (syncs files modified since the last synced time)
 - Command palette → "Re-sync ALL highlights to Readwise" (ignores the last synced time and syncs all files)
 - Command palette → "Sync #review blocks in current file to Readwise"
-- Or click the book-up icon in the ribbon
-
-## Building from source
-
-```bash
-npm install
-npm run build   # outputs main.js
-npm run dev      # watch mode while developing
-```
-
-## Notes on the Readwise API used
-
-- Highlights are created via `POST https://readwise.io/api/v2/highlights/`,
-  batched at 50 per request.
-- Each highlight includes a `highlight_url` pointing
-  at the specific block via an Obsidian block reference
-  (`obsidian://open?vault=...&file=<path>#^blockid`). The first time a `#review`
-  block is scanned, the plugin appends a block ID (`^abc123`) to it in the
-  file if it doesn't already have one — this is what keeps `highlight_url`
-  stable across edits.
-- All highlights are grouped under a fixed book title and author configured
-  in the plugin settings.
-- The block's URL is also appended to the highlight text itself.
-- 429 responses are retried up to 3 times using the `Retry-After` header.
-- Requests go through Obsidian's `requestUrl` (not `fetch`) so they aren't
-  blocked by CORS.
-- **Dedup and edit-syncing**: Readwise treats a highlight as a duplicate
-  only when `title`, `author`, `text`, and `source_url` *all* match a
-  previous highlight. Separately, Readwise supports updating a highlight
-  by re-sending the same `highlight_url` with new `text` instead of
-  creating a new highlight. Since the block ID (and therefore
-  `highlight_url`) stays fixed even when you edit the block's wording,
-  re-running the sync after an edit updates the existing Readwise
-  highlight instead of creating a new one. This means the "Re-tag synced
-  blocks" setting is no longer needed to avoid duplicates — leave it off,
-  since turning it on stops the block from being rescanned and breaks
-  edit-syncing.
-- **Caveat**: renaming or moving a note changes its vault path, which
-  changes the block's URL — so `highlight_url` changes too, and the next
-  sync creates a fresh highlight in Readwise rather than updating the old
-  one (the old highlight is orphaned, not deleted). Deleting the `^abc123`
-  marker from a block has the same effect, since a new ID gets generated
-  next time it's scanned.
-
-## Caveats worth knowing about
-
-- Block splitting is done on blank lines, which matches how most people
-  write `#review` tags at the end of a paragraph or bullet — but a tag
-  placed alone on a blank-separated line will itself become a (probably
-  empty) "block" and gets skipped since empty highlights aren't sent.
-- This does not distinguish nested tags like `#review/urgent` from
-  `#review` — only exact `#review` is matched (word-boundary aware), so
-  `#review/urgent` is treated as a different tag and won't match unless
-  you change the configured tag name.
+- Or click the "book with up arrow" icon in the ribbon (leftmost sidebar on desktop)
