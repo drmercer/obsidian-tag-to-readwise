@@ -122,16 +122,17 @@ describe("convertBlocksToReadwiseHighlights", () => {
         sourceUrl: "obsidian://open?vault=Vault",
         category: "articles",
         vaultName: "Vault",
-        convertRelativeLinks: false,
-        buildHighlightUrl: (file, blockId) => `${file.path}#^${blockId}`,
+        convertRelativeLinks: true,
+        buildHighlightUrl: (file, blockId) =>
+          `obsidian://open?vault=Vault&file=${encodeURIComponent(`${file.path}#^${blockId}`)}`,
       }),
     ).toEqual([
       {
-        text: "\u00a0\u00a0• [Highlight text](https://example.com)\u200b)\n\n(Note)",
+        text: "[Note](https://danmercer.net/tools/obsidianurl#obsidian://open?vault=Vault&file=Folder%2FNote.md%23%5Eblock123):\n\n\u00a0\u00a0• [Highlight text](https://example.com)\u200b)",
         title: "My Notes",
         author: "Author",
         source_url: "obsidian://open?vault=Vault",
-        highlight_url: "Folder/Note.md#^block123",
+        highlight_url: "obsidian://open?vault=Vault&file=Folder%2FNote.md%23%5Eblock123",
         category: "articles",
         highlighted_at: "2026-01-02T00:00:00.000Z",
         note: ".idea .important",
@@ -159,5 +160,6 @@ describe("convertBlocksToReadwiseHighlights", () => {
     expect(highlight).toMatchObject({ title: "My Notes", category: "books" });
     expect(highlight).not.toHaveProperty("author");
     expect(highlight).not.toHaveProperty("note");
+    expect(highlight?.text).toBe("Note:\n\nText");
   });
 });

@@ -1,5 +1,7 @@
 export type ReadwiseCategory = "articles" | "books" | "tweets" | "podcasts";
 
+const OBSIDIAN_URL_REDIRECT_PREFIX = "https://danmercer.net/tools/obsidianurl#";
+
 export interface ReadwiseFile {
   path: string;
   basename: string;
@@ -79,7 +81,7 @@ export function convertRelativeMarkdownLinks(
       else segments.push(segment);
     }
     const fileTarget = `${segments.join("/")}${fragmentParts.length ? `#${fragmentParts.join("#")}` : ""}`;
-    const uri = `https://danmercer.net/tools/obsidianurl#obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(fileTarget)}`;
+    const uri = `${OBSIDIAN_URL_REDIRECT_PREFIX}obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(fileTarget)}`;
     return `${prefix}${uri}${suffix}`;
   });
 }
@@ -93,7 +95,7 @@ export function convertWikiLinks(
   if (!enabled) return text;
   return text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target: string, alias?: string) => {
     const label = alias?.trim() || target.trim();
-    const uri = `https://danmercer.net/tools/obsidianurl#obsidian://open?vault=${encodeURIComponent(vaultName)}&name=${encodeURIComponent(target.trim())}`;
+    const uri = `${OBSIDIAN_URL_REDIRECT_PREFIX}obsidian://open?vault=${encodeURIComponent(vaultName)}&name=${encodeURIComponent(target.trim())}`;
     return `[${label}](${uri})`;
   });
 }
@@ -103,31 +105,38 @@ export function convertBlocksToReadwiseHighlights(
   blocks: ExtractedBlock[],
   metadata: ReadwiseHighlightMetadata,
 ): ReadwiseHighlight[] {
-  return blocks.map(({ file, cleanedText, blockId, dotTags }) => ({
-    text: `${preserveLeadingSpaces(
-      renderBulletMarkers(
-        separateConsecutiveClosingParentheses(
-          convertRelativeMarkdownLinks(
-            convertWikiLinks(
-              cleanedText,
-              metadata.convertRelativeLinks,
+  return blocks.map(({ file, cleanedText, blockId, dotTags }) => {
+    const highlightUrl = metadata.buildHighlightUrl(file, blockId);
+    const noteTitle = metadata.convertRelativeLinks
+      ? `[${file.basename}](${OBSIDIAN_URL_REDIRECT_PREFIX}${highlightUrl})`
+      : file.basename;
+
+    return {
+      text: `${noteTitle}:\n\n${preserveLeadingSpaces(
+        renderBulletMarkers(
+          separateConsecutiveClosingParentheses(
+            convertRelativeMarkdownLinks(
+              convertWikiLinks(
+                cleanedText,
+                metadata.convertRelativeLinks,
+                metadata.vaultName,
+              ),
+              file.path,
               metadata.vaultName,
+              metadata.convertRelativeLinks,
             ),
-            file.path,
-            metadata.vaultName,
-            metadata.convertRelativeLinks,
           ),
         ),
-      ),
-    )}\n\n(${file.basename})`,
-    title: metadata.title,
-    ...(metadata.author ? { author: metadata.author } : {}),
-    source_url: metadata.sourceUrl,
-    highlight_url: metadata.buildHighlightUrl(file, blockId),
-    category: metadata.category,
-    highlighted_at: new Date(file.stat.ctime).toISOString(),
-    ...(dotTags.length > 0
-      ? { note: dotTags.map((tag) => `.${tag}`).join(" ") }
-      : {}),
-  }));
+      )}`,
+      title: metadata.title,
+      ...(metadata.author ? { author: metadata.author } : {}),
+      source_url: metadata.sourceUrl,
+      highlight_url: highlightUrl,
+      category: metadata.category,
+      highlighted_at: new Date(file.stat.ctime).toISOString(),
+      ...(dotTags.length > 0
+        ? { note: dotTags.map((tag) => `.${tag}`).join(" ") }
+        : {}),
+    };
+  });
 }
