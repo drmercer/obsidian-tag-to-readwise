@@ -3,7 +3,8 @@ name: Release Obsidian plugin
 on:
     push:
         tags:
-            - '*'
+            # Match semantic versioning tags (e.g., 1.0.0) but NOT with a "v" prefix because Obsidian doesn't allow those for some reason.
+            - '[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
     build:
