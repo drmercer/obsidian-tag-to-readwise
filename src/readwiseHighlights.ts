@@ -39,13 +39,18 @@ export function preserveLeadingSpaces(text: string): string {
   );
 }
 
+/** Replaces Markdown unordered-list markers with bullets Readwise displays as text. */
+export function renderBulletMarkers(text: string): string {
+  return text.replace(/(^|\n)([ \t]*)([-*+])([ \t]+)/g, "$1$2•$4");
+}
+
 /** Converts extracted Obsidian blocks into the shape expected by Readwise. */
 export function convertBlocksToReadwiseHighlights(
   blocks: ExtractedBlock[],
   metadata: ReadwiseHighlightMetadata,
 ): ReadwiseHighlight[] {
   return blocks.map(({ file, cleanedText, blockId, dotTags }) => ({
-    text: `${preserveLeadingSpaces(cleanedText)}\n\n(${file.basename})`,
+    text: `${preserveLeadingSpaces(renderBulletMarkers(cleanedText))}\n\n(${file.basename})`,
     title: metadata.title,
     ...(metadata.author ? { author: metadata.author } : {}),
     source_url: metadata.sourceUrl,

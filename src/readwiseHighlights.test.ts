@@ -3,6 +3,7 @@ import {
   convertBlocksToReadwiseHighlights,
   ExtractedBlock,
   preserveLeadingSpaces,
+  renderBulletMarkers,
 } from "./readwiseHighlights";
 
 describe("preserveLeadingSpaces", () => {
@@ -17,6 +18,18 @@ describe("preserveLeadingSpaces", () => {
   });
 });
 
+describe("renderBulletMarkers", () => {
+  it("replaces unordered Markdown list markers at the start of lines", () => {
+    expect(renderBulletMarkers("- first\n  * nested\n+ another")).toBe(
+      "• first\n  • nested\n• another",
+    );
+  });
+
+  it("leaves inline hyphens and horizontal rules unchanged", () => {
+    expect(renderBulletMarkers("word - word\n---")).toBe("word - word\n---");
+  });
+});
+
 describe("convertBlocksToReadwiseHighlights", () => {
   it("converts extracted blocks to Readwise highlights", () => {
     const blocks: ExtractedBlock[] = [
@@ -26,7 +39,7 @@ describe("convertBlocksToReadwiseHighlights", () => {
           basename: "Note",
           stat: { ctime: Date.UTC(2026, 0, 2) },
         },
-        cleanedText: "  Highlight text",
+        cleanedText: "  - Highlight text",
         blockId: "block123",
         dotTags: ["idea", "important"],
       },
@@ -42,7 +55,7 @@ describe("convertBlocksToReadwiseHighlights", () => {
       }),
     ).toEqual([
       {
-        text: "\u00a0\u00a0Highlight text\n\n(Note)",
+        text: "\u00a0\u00a0• Highlight text\n\n(Note)",
         title: "My Notes",
         author: "Author",
         source_url: "obsidian://open?vault=Vault",
