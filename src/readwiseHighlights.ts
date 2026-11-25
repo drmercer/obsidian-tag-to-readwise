@@ -55,6 +55,20 @@ export function separateConsecutiveClosingParentheses(text: string): string {
   );
 }
 
+/** Adapts Obsidian emphasis and highlight syntax to Readwise's Markdown renderer. */
+export function normalizeInlineFormatting(text: string): string {
+  const escapedUnderscore = "\uE000";
+  return text
+    .replace(/\\_/g, escapedUnderscore)
+    .replace(
+      /(^|[\s([{])(_{1,2})(\S(?:[^\n]*?\S)?)\2(?=$|[\s.,!?;:)\]}])/gm,
+      (_match, prefix: string, delimiter: string, content: string) =>
+        `${prefix}${"*".repeat(delimiter.length)}${content}${"*".repeat(delimiter.length)}`,
+    )
+    .replace(/==([^\n]+?)==/g, "__$1__")
+    .replaceAll(escapedUnderscore, "\u200b_\u200b");
+}
+
 /** Converts relative Markdown links to links that open their target in Obsidian. */
 export function convertRelativeMarkdownLinks(
   text: string,
@@ -115,7 +129,7 @@ export function convertBlocksToReadwiseHighlights(
       text: `${noteTitle}:\n\n${preserveLeadingSpaces(
         renderBulletMarkers(
           separateConsecutiveClosingParentheses(
-            convertRelativeMarkdownLinks(
+            normalizeInlineFormatting(convertRelativeMarkdownLinks(
               convertWikiLinks(
                 cleanedText,
                 metadata.convertRelativeLinks,
@@ -124,7 +138,7 @@ export function convertBlocksToReadwiseHighlights(
               file.path,
               metadata.vaultName,
               metadata.convertRelativeLinks,
-            ),
+            )),
           ),
         ),
       )}`,

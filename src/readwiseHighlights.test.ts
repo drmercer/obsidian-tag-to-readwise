@@ -4,6 +4,7 @@ import {
   ExtractedBlock,
   convertRelativeMarkdownLinks,
   convertWikiLinks,
+  normalizeInlineFormatting,
   preserveLeadingSpaces,
   renderBulletMarkers,
   separateConsecutiveClosingParentheses,
@@ -45,6 +46,25 @@ describe("separateConsecutiveClosingParentheses", () => {
   it("separates every parenthesis in longer runs and preserves isolated ones", () => {
     expect(separateConsecutiveClosingParentheses("(one) and (two)))")).toBe(
       "(one) and (two)\u200b)\u200b)",
+    );
+  });
+});
+
+describe("normalizeInlineFormatting", () => {
+  it("converts underscore emphasis and double-equals highlights", () => {
+    expect(
+      normalizeInlineFormatting(
+        "Some _italic text_ and __bold text__. ==highlighted==",
+      ),
+    ).toBe("Some *italic text* and **bold text**. __highlighted__");
+  });
+
+  it("preserves unrelated and escaped underscores", () => {
+    expect(
+      normalizeInlineFormatting("snake_case file_name.md and escaped \\_mark\\_"),
+    ).toBe("snake_case file_name.md and escaped \u200b_\u200bmark\u200b_\u200b");
+    expect(normalizeInlineFormatting("\\_\\_yeet__")).toBe(
+      "\u200b_\u200b\u200b_\u200byeet__",
     );
   });
 });
