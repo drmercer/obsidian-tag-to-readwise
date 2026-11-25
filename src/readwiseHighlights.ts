@@ -29,6 +29,8 @@ export interface ReadwiseHighlightMetadata {
   author: string;
   sourceUrl: string;
   category: ReadwiseCategory;
+  vaultName: string;
+  convertRelativeLinks: boolean;
   buildHighlightUrl: (file: ReadwiseFile, blockId: string) => string;
 }
 
@@ -51,6 +53,51 @@ export function separateConsecutiveClosingParentheses(text: string): string {
   );
 }
 
+/** Converts relative Markdown links to links that open their target in Obsidian. */
+export function convertRelativeMarkdownLinks(
+  text: string,
+  sourcePath: string,
+  vaultName: string,
+  enabled: boolean,
+): string {
+  if (!enabled) return text;
+  const sourceDirectory = sourcePath.split("/").slice(0, -1);
+  return text.replace(/(\]\()([^)]*)(\))/g, (_match, prefix: string, target: string, suffix: string) => {
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target)) {
+      return `${prefix}${target}${suffix}`;
+    }
+
+    const [relativePath, ...fragmentParts] = target.split("#");
+    const segments = !relativePath
+      ? sourcePath.split("/")
+      : relativePath.startsWith("/")
+      ? []
+      : [...sourceDirectory];
+    for (const segment of (relativePath ?? "").replace(/^\//, "").split("/")) {
+      if (!segment || segment === ".") continue;
+      if (segment === "..") segments.pop();
+      else segments.push(segment);
+    }
+    const fileTarget = `${segments.join("/")}${fragmentParts.length ? `#${fragmentParts.join("#")}` : ""}`;
+    const uri = `https://danmercer.net/tools/obsidianurl#obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(fileTarget)}`;
+    return `${prefix}${uri}${suffix}`;
+  });
+}
+
+/** Converts Obsidian wiki links to Markdown links using the configured web redirect. */
+export function convertWikiLinks(
+  text: string,
+  enabled: boolean,
+  vaultName: string,
+): string {
+  if (!enabled) return text;
+  return text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target: string, alias?: string) => {
+    const label = alias?.trim() || target.trim();
+    const uri = `https://danmercer.net/tools/obsidianurl#obsidian://open?vault=${encodeURIComponent(vaultName)}&name=${encodeURIComponent(target.trim())}`;
+    return `[${label}](${uri})`;
+  });
+}
+
 /** Converts extracted Obsidian blocks into the shape expected by Readwise. */
 export function convertBlocksToReadwiseHighlights(
   blocks: ExtractedBlock[],
@@ -58,7 +105,20 @@ export function convertBlocksToReadwiseHighlights(
 ): ReadwiseHighlight[] {
   return blocks.map(({ file, cleanedText, blockId, dotTags }) => ({
     text: `${preserveLeadingSpaces(
-      renderBulletMarkers(separateConsecutiveClosingParentheses(cleanedText)),
+      renderBulletMarkers(
+        separateConsecutiveClosingParentheses(
+          convertRelativeMarkdownLinks(
+            convertWikiLinks(
+              cleanedText,
+              metadata.convertRelativeLinks,
+              metadata.vaultName,
+            ),
+            file.path,
+            metadata.vaultName,
+            metadata.convertRelativeLinks,
+          ),
+        ),
+      ),
     )}\n\n(${file.basename})`,
     title: metadata.title,
     ...(metadata.author ? { author: metadata.author } : {}),

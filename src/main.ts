@@ -61,6 +61,7 @@ interface ReviewToReadwiseSettings {
   category: ReadwiseCategory;
   bookTitle: string; // fixed Readwise "book" title all highlights are grouped under
   bookAuthor: string; // fixed Readwise author for all highlights
+  convertRelativeLinks: boolean;
   lastSyncedTime: number; // timestamp in ms of last successful sync
   readwiseUrl?: string; // Readwise web URL for the book
 }
@@ -72,6 +73,7 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   category: "articles",
   bookTitle: "",
   bookAuthor: "",
+  convertRelativeLinks: false,
   lastSyncedTime: 0,
   readwiseUrl: "",
 };
@@ -380,6 +382,8 @@ export default class ReviewToReadwisePlugin extends Plugin {
       author: this.settings.bookAuthor,
       sourceUrl: vaultUrl,
       category: this.settings.category,
+      vaultName: this.app.vault.getName(),
+      convertRelativeLinks: this.settings.convertRelativeLinks,
       buildHighlightUrl: (file, blockId) =>
         this.buildBlockUrl(file.path, blockId),
     });
@@ -534,6 +538,14 @@ class ReviewToReadwiseSettingTab extends PluginSettingTab {
             tweets: "Tweets",
             podcasts: "Podcasts",
           },
+        },
+      },
+      {
+        name: "Render clickable links",
+        desc: "By prefixing Obsidian URLs with a web redirect.",
+        control: {
+          type: "toggle",
+          key: "convertRelativeLinks",
         },
       },
       {
