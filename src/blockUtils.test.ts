@@ -295,6 +295,24 @@ describe("extractHighlights", () => {
     ]);
   });
 
+  it("includes a list immediately following a tagged paragraph", () => {
+    const input = [
+      "Paragraph #review ^para123",
+      "- First item",
+      "- Second item",
+      "  - Nested item",
+      "Next paragraph",
+    ].join("\n");
+
+    expect(extractHighlights(input, "review")).toEqual([
+      {
+        cleanedText: "Paragraph\n- First item\n- Second item\n  - Nested item",
+        blockId: "para123",
+        dotTags: [],
+      },
+    ]);
+  });
+
   it("uses parseLine on additional nested lines to strip block IDs", () => {
     const input = [
       "- Main list item #review .tag1 ^main123",

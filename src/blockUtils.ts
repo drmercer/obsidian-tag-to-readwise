@@ -156,6 +156,8 @@ export function extractHighlights(
       let cleanedText = parsed.cleanedText;
 
       const baseIndentLength = line.match(/^(\s*)/)?.[1]?.length ?? 0;
+      const baseIsListItem = /^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(line);
+      let isCapturingFollowingList = false;
 
       let j = i + 1;
       while (j < lines.length) {
@@ -164,7 +166,17 @@ export function extractHighlights(
           break;
         }
         const subIndentLength = subLine.match(/^(\s*)/)?.[1]?.length ?? 0;
-        if (subIndentLength <= baseIndentLength) {
+        const subIsListItem = /^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(subLine);
+        if (!baseIsListItem && j === i + 1 && subIsListItem) {
+          isCapturingFollowingList = true;
+        }
+        const followsList =
+          isCapturingFollowingList &&
+          (subIsListItem || subIndentLength > baseIndentLength);
+        if (
+          subIndentLength <= baseIndentLength &&
+          !followsList
+        ) {
           break;
         }
         const parsedSub = parseLine(subLine, tagName);
