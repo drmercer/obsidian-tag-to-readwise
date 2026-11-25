@@ -14,9 +14,7 @@ This plugin is not built or endorsed by Readwise. I am just an avid Readwise use
 
 ## Setup
 
-1. Copy `manifest.json` and `main.js` (built from `src/main.ts`) into
-   `<your-vault>/.obsidian/plugins/tag-to-readwise/`.
-2. Reload Obsidian and enable the plugin under Settings → Community plugins.
+1. Install the plugin [from the Obsidian marketplace](https://community.obsidian.md/plugins/tag-to-readwise).
 3. Open the plugin settings and paste in your Readwise API token
    (find it at https://readwise.io/access_token). Click "Validate" to
    confirm it works.
