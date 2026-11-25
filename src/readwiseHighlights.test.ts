@@ -4,6 +4,7 @@ import {
   ExtractedBlock,
   preserveLeadingSpaces,
   renderBulletMarkers,
+  separateConsecutiveClosingParentheses,
 } from "./readwiseHighlights";
 
 describe("preserveLeadingSpaces", () => {
@@ -30,6 +31,22 @@ describe("renderBulletMarkers", () => {
   });
 });
 
+describe("separateConsecutiveClosingParentheses", () => {
+  it("inserts a zero-width space between consecutive closing parentheses", () => {
+    expect(
+      separateConsecutiveClosingParentheses(
+        "([Some link](https://example.com))",
+      ),
+    ).toBe("([Some link](https://example.com)\u200b)");
+  });
+
+  it("separates every parenthesis in longer runs and preserves isolated ones", () => {
+    expect(separateConsecutiveClosingParentheses("(one) and (two)))")).toBe(
+      "(one) and (two)\u200b)\u200b)",
+    );
+  });
+});
+
 describe("convertBlocksToReadwiseHighlights", () => {
   it("converts extracted blocks to Readwise highlights", () => {
     const blocks: ExtractedBlock[] = [
@@ -39,7 +56,7 @@ describe("convertBlocksToReadwiseHighlights", () => {
           basename: "Note",
           stat: { ctime: Date.UTC(2026, 0, 2) },
         },
-        cleanedText: "  - Highlight text",
+        cleanedText: "  - [Highlight text](https://example.com))",
         blockId: "block123",
         dotTags: ["idea", "important"],
       },
@@ -55,7 +72,7 @@ describe("convertBlocksToReadwiseHighlights", () => {
       }),
     ).toEqual([
       {
-        text: "\u00a0\u00a0• Highlight text\n\n(Note)",
+        text: "\u00a0\u00a0• [Highlight text](https://example.com)\u200b)\n\n(Note)",
         title: "My Notes",
         author: "Author",
         source_url: "obsidian://open?vault=Vault",

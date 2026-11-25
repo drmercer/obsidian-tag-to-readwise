@@ -44,13 +44,22 @@ export function renderBulletMarkers(text: string): string {
   return text.replace(/(^|\n)([ \t]*)([-*+])([ \t]+)/g, "$1$2•$4");
 }
 
+/** Separates adjacent closing parentheses so Readwise keeps Markdown link URLs intact. */
+export function separateConsecutiveClosingParentheses(text: string): string {
+  return text.replace(/\)+/g, (parentheses) =>
+    parentheses.split("").join("\u200b"),
+  );
+}
+
 /** Converts extracted Obsidian blocks into the shape expected by Readwise. */
 export function convertBlocksToReadwiseHighlights(
   blocks: ExtractedBlock[],
   metadata: ReadwiseHighlightMetadata,
 ): ReadwiseHighlight[] {
   return blocks.map(({ file, cleanedText, blockId, dotTags }) => ({
-    text: `${preserveLeadingSpaces(renderBulletMarkers(cleanedText))}\n\n(${file.basename})`,
+    text: `${preserveLeadingSpaces(
+      renderBulletMarkers(separateConsecutiveClosingParentheses(cleanedText)),
+    )}\n\n(${file.basename})`,
     title: metadata.title,
     ...(metadata.author ? { author: metadata.author } : {}),
     source_url: metadata.sourceUrl,
