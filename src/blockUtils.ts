@@ -116,13 +116,6 @@ export interface Highlight {
   dotTags: string[];
 }
 
-/** Keeps leading indentation visible in Readwise's rendered highlight text. */
-export function preserveLeadingSpaces(text: string): string {
-  return text.replace(/(^|\n)( +)/g, (_match, lineStart: string, spaces: string) =>
-    lineStart + "\u00a0".repeat(spaces.length),
-  );
-}
-
 export interface FileWithStat {
   stat: {
     mtime: number;

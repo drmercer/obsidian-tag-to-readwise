@@ -14,8 +14,13 @@ import {
   ensureTaggedBlocksHaveIds,
   extractHighlights,
   filterFilesByModifiedTime,
-  preserveLeadingSpaces,
 } from "./blockUtils";
+import {
+  convertBlocksToReadwiseHighlights,
+  ExtractedBlock,
+  ReadwiseCategory,
+  ReadwiseHighlight,
+} from "./readwiseHighlights";
 
 /** ---------- Modals ---------- */
 
@@ -49,8 +54,6 @@ class MissingSettingsModal extends Modal {
 
 /** ---------- Types ---------- */
 
-type ReadwiseCategory = "articles" | "books" | "tweets" | "podcasts";
-
 interface ReviewToReadwiseSettings {
   autoSyncOnLoad: boolean;
   readwiseToken: string;
@@ -72,24 +75,6 @@ const DEFAULT_SETTINGS: ReviewToReadwiseSettings = {
   lastSyncedTime: 0,
   readwiseUrl: "",
 };
-
-interface ExtractedBlock {
-  file: TFile;
-  cleanedText: string; // block text with the tag and block ID stripped
-  blockId: string; // stable Obsidian block reference used as the Readwise highlight_url anchor
-  dotTags: string[]; // extracted Readwise tags associated with the block
-}
-
-interface ReadwiseHighlight {
-  text: string;
-  title: string;
-  author?: string;
-  source_url?: string;
-  highlight_url?: string;
-  category: ReadwiseCategory;
-  highlighted_at: string; // ISO 8601
-  note?: string;
-}
 
 const READWISE_HIGHLIGHTS_URL = "https://readwise.io/api/v2/highlights/";
 const READWISE_AUTH_URL = "https://readwise.io/api/v2/auth/";
@@ -366,9 +351,9 @@ export default class ReviewToReadwisePlugin extends Plugin {
   /** Builds the obsidian:// deep link straight to a specific block.
    * This same URL doubles as the Readwise highlight_url,
    * so it must stay identical across syncs as long as the block ID doesn't change. */
-  private buildBlockUrl(file: TFile, blockId: string): string {
+  private buildBlockUrl(filePath: string, blockId: string): string {
     const vaultName = this.app.vault.getName();
-    const encodedTarget = encodeURIComponent(`${file.path}#^${blockId}`);
+    const encodedTarget = encodeURIComponent(`${filePath}#^${blockId}`);
     const encodedVault = encodeURIComponent(vaultName);
     const obsidianUrl = `obsidian://open?vault=${encodedVault}&file=${encodedTarget}`;
 
@@ -390,24 +375,14 @@ export default class ReviewToReadwisePlugin extends Plugin {
     token: string,
   ): Promise<string | undefined> {
     const vaultUrl = this.buildVaultUrl();
-    const highlights: ReadwiseHighlight[] = blocks.map(
-      ({ file, cleanedText, blockId, dotTags }) => {
-        const url = this.buildBlockUrl(file, blockId);
-        // append file name to text
-        const text = `${preserveLeadingSpaces(cleanedText)}\n\n(${file.basename})`;
-
-        return {
-          text,
-          title: this.settings.bookTitle,
-          author: this.settings.bookAuthor || undefined,
-          source_url: vaultUrl,
-          highlight_url: url,
-          category: this.settings.category,
-          highlighted_at: new Date(file.stat.ctime).toISOString(),
-          note: dotTags.map((tag) => `.${tag}`).join(" ") || undefined,
-        };
-      },
-    );
+    const highlights = convertBlocksToReadwiseHighlights(blocks, {
+      title: this.settings.bookTitle,
+      author: this.settings.bookAuthor,
+      sourceUrl: vaultUrl,
+      category: this.settings.category,
+      buildHighlightUrl: (file, blockId) =>
+        this.buildBlockUrl(file.path, blockId),
+    });
 
     let highlightsUrl: string | undefined;
     for (let i = 0; i < highlights.length; i += BATCH_SIZE) {
