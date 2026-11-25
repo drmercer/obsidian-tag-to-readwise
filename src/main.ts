@@ -14,6 +14,7 @@ import {
   ensureTaggedBlocksHaveIds,
   extractHighlights,
   filterFilesByModifiedTime,
+  preserveLeadingSpaces,
 } from "./blockUtils";
 
 /** ---------- Modals ---------- */
@@ -393,7 +394,7 @@ export default class ReviewToReadwisePlugin extends Plugin {
       ({ file, cleanedText, blockId, dotTags }) => {
         const url = this.buildBlockUrl(file, blockId);
         // append file name to text
-        const text = `${cleanedText}\n\n(${file.basename})`;
+        const text = `${preserveLeadingSpaces(cleanedText)}\n\n(${file.basename})`;
 
         return {
           text,
